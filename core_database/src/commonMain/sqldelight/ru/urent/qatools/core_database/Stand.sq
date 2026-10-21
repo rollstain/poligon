@@ -1,0 +1,31 @@
+CREATE TABLE stand (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    base_url TEXT NOT NULL UNIQUE,
+    email TEXT,
+    encrypted_access_token BLOB,
+    encrypted_password BLOB
+);
+
+selectAll:
+SELECT * FROM stand ORDER BY id DESC;
+
+selectByBaseUrl:
+SELECT * FROM stand WHERE base_url = ?;
+
+saveLogin:
+INSERT OR REPLACE INTO stand(base_url, email, encrypted_access_token, encrypted_password) VALUES (?, ?, ?, ?);
+
+saveToken:
+UPDATE stand SET encrypted_access_token = ? WHERE base_url = ?;
+
+clearToken:
+UPDATE stand SET encrypted_access_token = NULL WHERE base_url = ?;
+
+clearCredentials:
+UPDATE stand SET encrypted_access_token = NULL, encrypted_password = NULL WHERE base_url = ?;
+
+clearAllCredentials:
+UPDATE stand SET encrypted_access_token = NULL, encrypted_password = NULL;
+
+deleteStand:
+DELETE FROM stand WHERE base_url = ?;

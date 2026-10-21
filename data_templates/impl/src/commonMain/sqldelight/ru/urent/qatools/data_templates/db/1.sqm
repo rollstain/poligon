@@ -1,0 +1,9 @@
+ALTER TABLE template_bike ADD COLUMN availability TEXT NOT NULL DEFAULT 'KEEP';
+ALTER TABLE template_bike ADD COLUMN disabled_reason_name TEXT;
+ALTER TABLE template_bike ADD COLUMN disabled_reason_title TEXT;
+
+CREATE TABLE last_city (
+    stand_base_url TEXT NOT NULL PRIMARY KEY,
+    city_id TEXT NOT NULL,
+    city_name TEXT NOT NULL
+);

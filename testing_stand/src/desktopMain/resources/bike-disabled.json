@@ -1,0 +1,87 @@
+{
+  "id": "60c9a16d6450fb731f19324d",
+  "identifier": "S.4007",
+  "model": {
+    "id": "669508f7876a97da50dd9ab8",
+    "name": "Ninebot Urban E-Bike B100"
+  },
+  "bikeType": "EBike",
+  "state": {
+    "id": "60c9a16d6450fb731f19324d",
+    "identifier": "S.4007",
+    "state": {
+      "active": false,
+      "alarms": [],
+      "locked": true,
+      "mechanicalLocked": null,
+      "connected": true,
+      "disabled": true,
+      "nullableCoordinates": false,
+      "manualCoordinates": false,
+      "orientation": "Undefined",
+      "lastChangedDateTimeUtc": "2026-10-16T17:11:01.35Z",
+      "nullableCoordinatesDateTime": null,
+      "manualCoordinatesDateTime": null,
+      "connectionLostDate": null
+    },
+    "disabledReason": "Готов к эксплуатации",
+    "disabledReasonId": "6130ef586c784359f750ef23",
+    "disabledReasonTag": "ReadyForUse",
+    "isServiceMode": false,
+    "disabledReasons": [
+      "Готов к эксплуатации"
+    ],
+    "disabledReasonTags": [
+      "ReadyForUse"
+    ],
+    "mainDisabledReason": "Готов к эксплуатации"
+  },
+  "telemetry": {
+    "id": "60c9a16d6450fb731f19324d",
+    "identifier": "S.4007",
+    "telemetry": {
+      "supplyType": "External",
+      "supplyTypeName": "Внешний",
+      "voltage": 36,
+      "temperature": 0,
+      "rssi": 0,
+      "lastChangedDateTimeUtc": "2026-10-16T17:11:01.358Z",
+      "voltagePercent": 32.09876543209877,
+      "soundMode": "Off",
+      "lightMode": "Off",
+      "amperage": 0,
+      "batteryOnCharge": {
+        "status": "NotCharging",
+        "inOutletStartDate": null,
+        "fullChargeDate": null
+      }
+    }
+  },
+  "charge": {
+    "batteryPercent": 0.32098765432098775,
+    "balanceKm": 15.469135802469141,
+    "batteryForActiveInHours": 1.9336419753086427,
+    "batteryForPassiveInHours": 1.9336419753086427,
+    "customerPercent": 0.2455418381344308,
+    "status": "Ok"
+  },
+  "location": {
+    "lat": 55.67053166666667,
+    "lng": 38.29253833333333
+  },
+  "trackerId": "300000000004007",
+  "techZones": [
+    "заМКАД"
+  ],
+  "bikeCity": {
+    "cityId": "5f9b210df0e5ce000164f051",
+    "cityName": "Москва",
+    "geoCode": "RU-MOW"
+  },
+  "businessStatus": "Maintenance",
+  "businessStatusName": "Обслуживание",
+  "businessSubStatus": "MaintenanceService",
+  "businessSubStatusName": "Ремонт",
+  "bikeBatteryInternal": null,
+  "bikeBatteryExternal": null
+}

@@ -1,0 +1,6 @@
+ALTER TABLE app_settings ADD COLUMN is_sidebar_collapsed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE app_settings ADD COLUMN is_window_maximized INTEGER;
+ALTER TABLE app_settings ADD COLUMN window_x REAL;
+ALTER TABLE app_settings ADD COLUMN window_y REAL;
+ALTER TABLE app_settings ADD COLUMN window_width REAL;
+ALTER TABLE app_settings ADD COLUMN window_height REAL;

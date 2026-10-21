@@ -1,0 +1,1 @@
+ALTER TABLE stand ADD COLUMN encrypted_password BLOB;

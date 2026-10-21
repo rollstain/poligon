@@ -1,0 +1,14 @@
+config:
+  validation: true
+  warningsAsErrors: true
+  excludes: ''
+style:
+  UnusedImports:
+    active: true
+formatting:
+  SpacingBetweenFunctionNameAndOpeningParenthesis:
+    active: true
+  SpacingAroundDot:
+    active: true
+  SpacingAroundComma:
+    active: true

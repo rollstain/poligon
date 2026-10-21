@@ -1,0 +1,276 @@
+{
+  "entries": [
+    {
+      "id": "605b0b2ee84930a95667ed19",
+      "description": "Авторемонт",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Autorepair",
+      "canCreateTask": true,
+      "isManual": false,
+      "isHidden": false
+    },
+    {
+      "id": "605b0b2ee84930a95667ed1a",
+      "description": "Низкий заряд батареи",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "LowBattery",
+      "canCreateTask": true,
+      "isManual": false,
+      "isHidden": false
+    },
+    {
+      "id": "605b0b2ee84930a95667ed1d",
+      "description": "За зоной завершения",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "OutZone",
+      "canCreateTask": true,
+      "isManual": false,
+      "isHidden": false
+    },
+    {
+      "id": "605b0b2ee84930a95667ed1e",
+      "description": "ТО",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Maintenance",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "605b0b2ee84930a95667ed1f",
+      "description": "Нет связи",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "NoConnection",
+      "canCreateTask": true,
+      "isManual": false,
+      "isHidden": false
+    },
+    {
+      "id": "605b0b2ee84930a95667ed20",
+      "description": "Ошибка GPS",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "GpsError",
+      "canCreateTask": true,
+      "isManual": false,
+      "isHidden": false
+    },
+    {
+      "id": "607aee2d937741c27e08c51f",
+      "description": "Ожидание ремонта СЦ",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "WaitingForRepairingServiceCenter",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "607aee2d937741c27e08c520",
+      "description": "Ожидание транспортировки",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "WaitingForTransportation",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "60cc5c940416c8b29f1c89d7",
+      "description": "Перемещение",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Moving",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "60dad8b7395465d136d6ae65",
+      "description": "Ремонт",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "RepairInServiceCenter",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "60dad8b7395465d136d6ae66",
+      "description": "Зарядка",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "ChargingAtServiceCenter",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "60ffea328c58cec4ff2e2e52",
+      "description": "Транспортировка",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Transportation",
+      "canCreateTask": false,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "6130ef586c784359f750ef23",
+      "description": "Готов к эксплуатации",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "ReadyForUse",
+      "canCreateTask": true,
+      "isManual": false,
+      "isHidden": false
+    },
+    {
+      "id": "62f35c88e235ee1bcbdcc2a7",
+      "description": "Требует ремонта",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "NeedsRepair",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "62f35c88e235ee1bcbdcc2a8",
+      "description": "Тревога",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Alarm",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "62f35c88e235ee1bcbdcc2a9",
+      "description": "Транспорт украден",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Stolen",
+      "canCreateTask": false,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "62f35c88e235ee1bcbdcc2aa",
+      "description": "Транспорт разоборудован",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Disassembled",
+      "canCreateTask": false,
+      "isManual": false,
+      "isHidden": false
+    },
+    {
+      "id": "62f35c89e235ee1bcbdcc2ab",
+      "description": "Транспорт на хранении",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "InStorage",
+      "canCreateTask": false,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "62f35c89e235ee1bcbdcc2ac",
+      "description": "Транспорт на сборке",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "InAssembly",
+      "canCreateTask": false,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "62f35c89e235ee1bcbdcc2ad",
+      "description": "Готов к продаже",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "ForSale",
+      "canCreateTask": false,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "64d48ce6276c1e94812c5c47",
+      "description": "В работе СБ",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "InSecurityService",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "64d48ce7276c1e94812c5c48",
+      "description": "Утерян",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Wanted",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "6569eee3d9585381ba59b2e7",
+      "description": "Запрет аренды",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "TemporaryBanOnRenting",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "662649fda33f106d1a1f8cac",
+      "description": "Обновление прошивки",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "FirmwareUpdate",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "662649fda33f106d1a1f8cb5",
+      "description": "Изъят",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "Idle",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "67409c954733fdd063d045bb",
+      "description": "Подготовка к хранению",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "PreparingForStorage",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "67409c954733fdd063d045bc",
+      "description": "Ожидание запчастей",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "AwaitingSpareParts",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "67a4bd71785f10a5d595625f",
+      "description": "Подготовка к продаже",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "PreparingForSale",
+      "canCreateTask": true,
+      "isManual": true,
+      "isHidden": false
+    },
+    {
+      "id": "67b315949c3e258f84accd4a",
+      "description": "Критическая ошибка",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "CriticalError",
+      "canCreateTask": true,
+      "isManual": false,
+      "isHidden": false
+    },
+    {
+      "id": "67befafea472fc29d1f31bee",
+      "description": "Зарезервирован для чарджера",
+      "modifyDateTimeUtc": "2026-10-14T08:00:25.438Z",
+      "name": "ReserveForCharging",
+      "canCreateTask": true,
+      "isManual": false,
+      "isHidden": false
+    }
+  ],
+  "errors": [],
+  "succeeded": true
+}

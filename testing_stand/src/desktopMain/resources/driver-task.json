@@ -1,0 +1,19 @@
+{
+  "id": "6ad244ed5602118e6c93866b",
+  "type": "Pickup",
+  "priority": "Normal",
+  "reason": "ReadyForUse",
+  "deadline": null,
+  "targetInfo": {
+    "type": "Ebike",
+    "id": "S.4007",
+    "title": "4007",
+    "model": "669508f7876a97da50dd9ab8"
+  },
+  "locationInfo": null,
+  "capacity": 1,
+  "center": {
+    "lat": 55.67053166666667,
+    "long": 38.29253833333333
+  }
+}

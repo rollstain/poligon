@@ -1,0 +1,9 @@
+CREATE TABLE setup_defaults (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    target_state TEXT,
+    target_percent REAL,
+    availability TEXT NOT NULL,
+    disabled_reason_name TEXT,
+    disabled_reason_title TEXT,
+    CHECK ((target_state IS NULL) <> (target_percent IS NULL))
+);

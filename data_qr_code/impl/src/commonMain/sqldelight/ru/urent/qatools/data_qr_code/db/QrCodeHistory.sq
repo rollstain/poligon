@@ -1,0 +1,26 @@
+CREATE TABLE qr_code_history (
+    content TEXT NOT NULL PRIMARY KEY,
+    used_sequence INTEGER NOT NULL,
+    is_shown INTEGER NOT NULL DEFAULT 0
+);
+
+selectHistory:
+SELECT content, is_shown FROM qr_code_history ORDER BY used_sequence DESC;
+
+add:
+INSERT OR IGNORE INTO qr_code_history(content, used_sequence)
+VALUES (?, (SELECT IFNULL(MAX(used_sequence), 0) + 1 FROM qr_code_history));
+
+hideAll:
+UPDATE qr_code_history SET is_shown = 0;
+
+saveShown:
+UPDATE qr_code_history SET is_shown = ? WHERE content = ?;
+
+deleteBeyondRecent:
+DELETE FROM qr_code_history WHERE content NOT IN (
+    SELECT content FROM qr_code_history ORDER BY used_sequence DESC LIMIT :keptCount
+);
+
+delete:
+DELETE FROM qr_code_history WHERE content = ?;

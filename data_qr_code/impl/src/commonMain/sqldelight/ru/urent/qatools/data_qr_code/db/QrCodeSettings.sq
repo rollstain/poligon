@@ -1,0 +1,10 @@
+CREATE TABLE qr_code_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    number_prefix TEXT NOT NULL
+);
+
+selectNumberPrefix:
+SELECT number_prefix FROM qr_code_settings WHERE id = 1;
+
+saveNumberPrefix:
+INSERT OR REPLACE INTO qr_code_settings(id, number_prefix) VALUES (1, ?);

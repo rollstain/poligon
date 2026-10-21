@@ -1,0 +1,5 @@
+CREATE TABLE app_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    is_borderless_fullscreen INTEGER NOT NULL DEFAULT 0,
+    ui_scale_percent INTEGER NOT NULL DEFAULT 100
+);

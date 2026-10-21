@@ -1,0 +1,11 @@
+CREATE TABLE last_city (
+    stand_base_url TEXT NOT NULL PRIMARY KEY,
+    city_id TEXT NOT NULL,
+    city_name TEXT NOT NULL
+);
+
+selectLastCity:
+SELECT * FROM last_city WHERE stand_base_url = ?;
+
+saveLastCity:
+INSERT OR REPLACE INTO last_city(stand_base_url, city_id, city_name) VALUES (?, ?, ?);

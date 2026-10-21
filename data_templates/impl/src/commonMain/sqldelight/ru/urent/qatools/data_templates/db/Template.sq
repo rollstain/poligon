@@ -1,0 +1,65 @@
+CREATE TABLE template (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stand_base_url TEXT NOT NULL,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE template_bike (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_id INTEGER NOT NULL REFERENCES template(id) ON DELETE CASCADE,
+    simulator_id INTEGER NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    target_state TEXT,
+    target_percent REAL,
+    availability TEXT NOT NULL DEFAULT 'KEEP',
+    disabled_reason_name TEXT,
+    disabled_reason_title TEXT,
+    CHECK ((target_state IS NULL) <> (target_percent IS NULL))
+);
+
+selectTemplates:
+SELECT * FROM template WHERE stand_base_url = ? ORDER BY id;
+
+selectTemplate:
+SELECT * FROM template WHERE id = ?;
+
+selectBikesForStand:
+SELECT template_bike.*
+FROM template_bike
+JOIN template ON template.id = template_bike.template_id
+WHERE template.stand_base_url = ?
+ORDER BY template_bike.id;
+
+selectBikes:
+SELECT * FROM template_bike WHERE template_id = ? ORDER BY id;
+
+insertTemplate:
+INSERT INTO template(stand_base_url, name) VALUES (?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+renameTemplate:
+UPDATE template SET name = ? WHERE id = ?;
+
+deleteTemplate:
+DELETE FROM template WHERE id = ?;
+
+insertBike:
+INSERT INTO template_bike(
+    template_id, simulator_id, latitude, longitude, target_state, target_percent,
+    availability, disabled_reason_name, disabled_reason_title
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+moveBike:
+UPDATE template_bike SET latitude = ?, longitude = ? WHERE id = ?;
+
+changeBikeSettings:
+UPDATE template_bike
+SET target_state = ?, target_percent = ?, availability = ?, disabled_reason_name = ?, disabled_reason_title = ?
+WHERE id = ?;
+
+deleteBike:
+DELETE FROM template_bike WHERE id = ?;

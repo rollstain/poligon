@@ -1,0 +1,137 @@
+{
+    "id": "6065d2f5ef64db1143f1dec4",
+    "name": "Ninebot L 60L",
+    "imgUrl": "Bikes.Api/20210715/637619555334207670_e1e4f3f39855461294c8ae843f90091a.png",
+    "clientImgUrl": null,
+    "jetClientImgUrl": null,
+    "bikeType": "Scooter",
+    "chargeThresholds": [
+        {
+            "batteryCapacityCategory": "Normal",
+            "batteryLevelNeedToChange": 25,
+            "batteryLevelToDisable": 15,
+            "batteryLevelToPoweroff": 10,
+            "batteryLevelToEmpty": 0,
+            "distanceFullBatteryKm": 40
+        }
+    ],
+    "batteryWaypointCount": 5,
+    "alarmDistanceForStealingInMeters": 150,
+    "poweroffStates": [
+        "ChargeIsExtremelyLow"
+    ],
+    "disableStates": [
+        "ChargeIsLow",
+        "ChargeIsExtremelyLow"
+    ],
+    "isDynamic": false,
+    "brand": {
+        "id": "606730d50539a535b6851843",
+        "name": "Ninebot"
+    },
+    "modelName": {
+        "id": "6627d60ff45ce77ad1e8c4b2",
+        "name": "L"
+    },
+    "edition": {
+        "id": "6627d60ff45ce77ad1e8c4b3",
+        "name": "60L"
+    },
+    "displayName": {
+        "description": "Ninebot L",
+        "translation": [
+            {
+                "language": "ru",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "en",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "el",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "uk",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "kk",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "sr",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "az",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "hy",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "ka",
+                "description": "Ninebot L"
+            },
+            {
+                "language": "ky",
+                "description": ""
+            },
+            {
+                "language": "uz",
+                "description": ""
+            }
+        ]
+    },
+    "supportTwoLetterLanguageNameList": [
+        "ru",
+        "en",
+        "el",
+        "uk",
+        "kk",
+        "sr",
+        "az",
+        "hy",
+        "ka",
+        "ky",
+        "uz",
+        "es",
+        "mn",
+        "br",
+        "pt",
+        "tg",
+        "nl",
+        "ar",
+        "fr"
+    ],
+    "batteryCover": "Electric",
+    "batteryChangeTimeoutSec": 0,
+    "averageSpeed": 8.402,
+    "powerReserveConstants": {
+        "const0": 12.022,
+        "const1": -125.61,
+        "const2": 455.528,
+        "const3": -554.643,
+        "const4": 228.524
+    },
+    "maxAlarmDistanceForStealingInMeters": 5000,
+    "cityStealingConfig": {},
+    "disableReasonsForDisableAlarm": [
+        "607aee2d937741c27e08c51f",
+        "60cc5c940416c8b29f1c89d7",
+        "60dad8b7395465d136d6ae66",
+        "60ffea328c58cec4ff2e2e52",
+        "6130ef586c784359f750ef23",
+        "62f35c88e235ee1bcbdcc2a8",
+        "62f35c88e235ee1bcbdcc2aa",
+        "62f35c89e235ee1bcbdcc2ab",
+        "62f35c89e235ee1bcbdcc2ac",
+        "62f35c89e235ee1bcbdcc2ad"
+    ],
+    "batteryFormFactor": "NinebotAndOther",
+    "errors": [],
+    "succeeded": true
+}

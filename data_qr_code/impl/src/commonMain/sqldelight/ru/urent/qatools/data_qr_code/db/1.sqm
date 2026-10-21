@@ -1,0 +1,6 @@
+ALTER TABLE qr_code_history ADD COLUMN is_shown INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE qr_code_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    number_prefix TEXT NOT NULL
+);
