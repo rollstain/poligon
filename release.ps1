@@ -2,6 +2,7 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 function Invoke-Native([string] $command, [string[]] $arguments) {
+    $ErrorActionPreference = 'Continue'
     & $command @arguments
     if ($LASTEXITCODE -ne 0) {
         throw "$command $($arguments -join ' ') завершился с кодом $LASTEXITCODE"
