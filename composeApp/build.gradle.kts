@@ -1,5 +1,4 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -19,8 +18,7 @@ detekt {
     buildUponDefaultConfig = false
 }
 
-version = "1.1.0"
-val distributionName = "Poligon"
+version = "1.1.1"
 
 kotlin {
     jvm("desktop")
@@ -80,8 +78,8 @@ compose.desktop {
         mainClass = "ru.urent.qatools.composeapp.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Exe)
-            packageName = distributionName
+            targetFormats(TargetFormat.Msi)
+            packageName = "Poligon"
             packageVersion = version.toString()
             description = "Poligon"
             vendor = "Urent"
@@ -89,20 +87,11 @@ compose.desktop {
             windows {
                 menuGroup = "Urent"
                 upgradeUuid = "8a3c1f52-6f1e-4c2b-9d7a-3e5b2c4f6a81"
+                perUserInstall = true
+                menu = true
+                shortcut = true
                 iconFile.set(project.file("icons/poligon.ico"))
             }
         }
     }
-}
-
-val syncPoligonFolder = tasks.register<Sync>("syncPoligonFolder") {
-    val createDistributable = tasks.named<AbstractJPackageTask>("createDistributable")
-    from(createDistributable.flatMap { it.destinationDir.dir(distributionName) })
-    into(rootProject.layout.projectDirectory.dir(distributionName))
-}
-
-tasks.register<Zip>("packageZip") {
-    from(syncPoligonFolder)
-    archiveBaseName.set(distributionName)
-    destinationDirectory.set(rootProject.layout.projectDirectory)
 }

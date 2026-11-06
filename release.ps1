@@ -23,7 +23,7 @@ try {
     }
     $version = $versionMatch.Matches[0].Groups[1].Value
     $tag = "v$version"
-    $zip = "Poligon-$version.zip"
+    $installer = "composeApp\build\compose\binaries\main\msi\Poligon-$version.msi"
 
     if ((git rev-parse --abbrev-ref HEAD) -ne 'main') {
         throw 'Релиз выпускается только из main'
@@ -35,11 +35,8 @@ try {
     if (git tag --list $tag) {
         throw "Тег $tag уже есть: подними version в composeApp\build.gradle.kts"
     }
-    if (Get-Process -Name 'Poligon' -ErrorAction SilentlyContinue) {
-        throw 'Закрой Poligon: запущенное приложение держит файлы сборки'
-    }
 
-    Invoke-Native '.\gradlew.bat' @('desktopTest', ':composeApp:packageZip')
+    Invoke-Native '.\gradlew.bat' @('desktopTest', ':composeApp:packageMsi')
 
     $buildDir = New-Item -ItemType Directory -Force (Join-Path $PSScriptRoot 'build')
     $notesFile = Join-Path $buildDir.FullName 'release-notes.md'
@@ -47,7 +44,7 @@ try {
 
     Invoke-Native 'git' @('tag', '-a', $tag, '-m', "Poligon $version")
     Invoke-Native 'git' @('push', 'origin', 'main', $tag)
-    Invoke-Native 'gh' @('release', 'create', $tag, $zip, '--title', "Poligon $version", '--notes-file', $notesFile)
+    Invoke-Native 'gh' @('release', 'create', $tag, $installer, '--title', "Poligon $version", '--notes-file', $notesFile)
 } finally {
     Pop-Location
 }
