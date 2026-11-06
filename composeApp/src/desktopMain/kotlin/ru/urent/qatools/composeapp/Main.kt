@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.skiko.setupSkikoLoggerFactory
 import org.koin.core.context.startKoin
 import ru.urent.qatools.composeapp.di.AppModule
 import ru.urent.qatools.composeapp.root.RootComponent
@@ -59,13 +60,17 @@ import ru.urent.qatools.uikit.theme.QaTheme
 private const val SMALL_LOGO_MAX_PX = 24
 private const val PERCENT_IN_UNIT = 100f
 private const val WINDOW_SAVE_DELAY_MS = 500
+private const val SKIKO_HARDWARE_INFO_PROPERTY = "skiko.hardwareInfo.enabled"
 private val WindowIconSizesPx = listOf(16, 20, 24, 32, 40, 48, 64)
 private val InitialWindowSize = DpSize(1360.dp, 900.dp)
 
 fun main() {
     val koin = startKoin { modules(AppModule().modules) }.koin
     val log = koin.get<AppLog>()
+    setupSkikoLoggerFactory { SkikoAppLog(log) }
+    System.setProperty(SKIKO_HARDWARE_INFO_PROPERTY, "true")
     log.info("${AppInfo.APP_NAME} ${AppInfo.version} запущен · ${AppInfo.systemDescription}")
+    log.info("Видеоадаптеры: ${AppInfo.graphicsAdapters}")
     val previousExceptionHandler = Thread.getDefaultUncaughtExceptionHandler()
     Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
         log.error("Необработанная ошибка в потоке ${thread.name}", exception)
