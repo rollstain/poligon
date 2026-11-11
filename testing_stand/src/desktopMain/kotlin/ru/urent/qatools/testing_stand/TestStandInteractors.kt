@@ -58,6 +58,8 @@ class TestStandInteractors(createEngine: () -> HttpClientEngine) {
     val bikeSetupInteractor = BikeSetupInteractor(
         bikesRepository = koin.get(),
         simulatorRepository = koin.get(),
+        omniEmulatorRepository = koin.get(),
+        voiEmulatorRepository = koin.get(),
         bikeMapper = BikeMapper(),
         log = SilentLog,
     )

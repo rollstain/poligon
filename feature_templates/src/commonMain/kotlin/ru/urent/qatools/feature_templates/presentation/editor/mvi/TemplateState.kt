@@ -39,4 +39,4 @@ data class TemplateBikeRow(
     val isChangedSinceApply: Boolean,
 )
 
-data class NewBikeState(val simulatorIdText: String, val lookup: BikeLookup?, val isLookingUp: Boolean, val canAdd: Boolean)
+data class NewBikeState(val bikeNumberText: String, val lookup: BikeLookup?, val isLookingUp: Boolean, val canAdd: Boolean)

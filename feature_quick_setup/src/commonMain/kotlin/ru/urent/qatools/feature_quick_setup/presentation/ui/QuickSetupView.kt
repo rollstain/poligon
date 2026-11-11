@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import ru.urent.qatools.base_bike_setup.domain.ChargeCalculator
 import ru.urent.qatools.base_bike_setup.domain.PlacementCalculator
 import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
 import ru.urent.qatools.base_bike_setup.entities.BikeLookup
@@ -60,7 +61,7 @@ private const val QUICK_PIN_ID = "quick-bike"
 private const val MAP_LOADER_SCRIM_ALPHA = 0.7f
 private const val MAP_HINT_SCRIM_ALPHA = 0.82f
 private val TargetColumnWidth = 380.dp
-private val SimulatorIdFieldWidth = 200.dp
+private val BikeNumberFieldWidth = 200.dp
 private val BikeTitleWidth = 180.dp
 private val SearchFieldWidth = 340.dp
 
@@ -99,16 +100,16 @@ private fun StandStrip(state: QuickSetupState, found: BikeLookup.Found?, onEvent
             horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceL),
         ) {
             QaTextField(
-                value = state.simulatorIdText,
-                onValueChange = { text -> onEvent(QuickSetupEvent.OnSimulatorIdChanged(text)) },
-                label = "Номер в симуляторе",
+                value = state.bikeNumberText,
+                onValueChange = { text -> onEvent(QuickSetupEvent.OnBikeNumberChanged(text)) },
+                label = "Номер байка",
                 placeholder = "например 4071",
-                modifier = Modifier.width(SimulatorIdFieldWidth),
+                modifier = Modifier.width(BikeNumberFieldWidth),
             )
             if (found == null) {
                 val line = lookupLine(lookup = state.lookup, isLookingUp = state.isLookingUp)
                 if (line == null) {
-                    Text("Номер байка в симуляторе — S.4071 это 4071", color = QaColors.textSecondary, modifier = Modifier.weight(1f))
+                    Text("Номер байка без «S.» — S.4071 это 4071", color = QaColors.textSecondary, modifier = Modifier.weight(1f))
                 } else {
                     StatusLineView(line, Modifier.weight(1f))
                 }
@@ -149,6 +150,7 @@ private fun TargetColumn(state: QuickSetupState, found: BikeLookup.Found?, onEve
                         onTargetChange = { target -> onEvent(QuickSetupEvent.OnTargetChanged(target)) },
                         thresholds = found?.bike?.thresholds,
                         currentPercent = found?.bike?.chargePercent,
+                        isEmptyReachable = found == null || ChargeCalculator.isEmptyReachable(found.bike.emulator, found.bike.thresholds),
                     )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
@@ -275,7 +277,7 @@ private fun MapCard(
                             listOf(
                                 BikePin(
                                     id = QUICK_PIN_ID,
-                                    label = found.bike.simulatorId.toString(),
+                                    label = found.bike.bikeNumber.toString(),
                                     location = location,
                                     color = chargeTargetColor(state.target),
                                     isSelected = true,

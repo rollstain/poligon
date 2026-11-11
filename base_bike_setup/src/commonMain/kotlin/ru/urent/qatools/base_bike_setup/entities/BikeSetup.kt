@@ -6,14 +6,14 @@ import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.core_entities.GeoPoint
 
 data class BikeSetup(
-    val simulatorId: Int,
+    val bikeNumber: Int,
     val location: GeoPoint,
     val target: ChargeTarget,
     val availability: AvailabilityTarget,
 )
 
 data class BikeContext(
-    val simulatorId: Int,
+    val bikeNumber: Int,
     val imei: String,
     val bikeId: String,
     val vendorId: String,
@@ -24,7 +24,7 @@ data class BikeContext(
     val chargePercent: Double?,
     val chargeState: ChargeState?,
     val location: GeoPoint?,
-    val voltageRange: VoltageRange,
+    val emulator: TrackerEmulator,
     val thresholds: ChargeThresholds,
     val disableStates: Set<ChargeState>,
     val status: BikeStatus,
@@ -66,8 +66,16 @@ sealed interface ApplyFailure {
     data object TrackerNotFound : ApplyFailure
 
     @Serializable
-    @SerialName("BikeNotLinked")
-    data object BikeNotLinked : ApplyFailure
+    @SerialName("BikeNotFound")
+    data object BikeNotFound : ApplyFailure
+
+    @Serializable
+    @SerialName("TrackerNotLinked")
+    data object TrackerNotLinked : ApplyFailure
+
+    @Serializable
+    @SerialName("TrackerNotEmulated")
+    data class TrackerNotEmulated(val imei: String) : ApplyFailure
 
     @Serializable
     @SerialName("UnsupportedDriver")

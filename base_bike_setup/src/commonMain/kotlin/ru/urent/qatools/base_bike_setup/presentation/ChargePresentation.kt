@@ -71,14 +71,16 @@ fun thresholdRangeText(state: ChargeState, thresholds: ChargeThresholds): String
 }
 
 fun failureText(failure: ApplyFailure): String = when (failure) {
-    ApplyFailure.TrackerNotFound -> "Трекера с таким номером нет на стенде"
-    ApplyFailure.BikeNotLinked -> "К трекеру не привязан байк"
+    ApplyFailure.BikeNotFound -> "Байка с таким номером нет на стенде"
+    ApplyFailure.TrackerNotLinked -> "К байку не привязан трекер"
+    ApplyFailure.TrackerNotFound -> "Трекера байка нет на стенде"
+    is ApplyFailure.TrackerNotEmulated -> "Трекер ${failure.imei} не запущен ни в симуляторе, ни в эмуляторе стенда — Полигон им не управляет"
     is ApplyFailure.UnsupportedDriver -> "Драйвер ${failure.driver.ifBlank { "трекера" }} пока не поддерживается"
     ApplyFailure.NoVoltageRange -> "У трекера не заданы мин. и макс. напряжение"
     ApplyFailure.NoChargeThresholds -> "У модели байка нет порогов заряда"
     ApplyFailure.StandUnavailable -> "Стенд недоступен. Проверьте VPN"
     ApplyFailure.SessionExpired -> "Сессия истекла, войдите заново"
-    ApplyFailure.NotConfirmed -> "Трекер не прислал новый заряд — проверьте симулятор"
+    ApplyFailure.NotConfirmed -> "Трекер не прислал новый заряд — проверьте симулятор или эмулятор"
     is ApplyFailure.ReasonNotFound -> "Заряд выставлен, но причины «${failure.reasonTitle}» нет на этом стенде"
     is ApplyFailure.AvailabilityNotChanged -> "Заряд выставлен, но доступ не изменился: ${failureText(failure.cause)}"
     is ApplyFailure.AvailabilityIgnored -> {

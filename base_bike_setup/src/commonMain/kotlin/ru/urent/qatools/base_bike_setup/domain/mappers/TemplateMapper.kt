@@ -32,7 +32,7 @@ class TemplateMapper {
     fun toDomain(entity: BikeSetupEntity): BikeSetup? {
         val target = targetOf(entity.settings) ?: return null
         return BikeSetup(
-            simulatorId = entity.simulatorId,
+            bikeNumber = entity.bikeNumber,
             location = entity.location,
             target = target,
             availability = availabilityOf(entity.settings),
@@ -55,7 +55,7 @@ class TemplateMapper {
     }
 
     fun toDatabase(setup: BikeSetup): BikeSetupEntity = BikeSetupEntity(
-        simulatorId = setup.simulatorId,
+        bikeNumber = setup.bikeNumber,
         location = setup.location,
         settings = toDatabase(target = setup.target, availability = setup.availability),
     )

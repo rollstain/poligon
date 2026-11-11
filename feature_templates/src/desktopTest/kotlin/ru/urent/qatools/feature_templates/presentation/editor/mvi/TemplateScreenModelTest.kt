@@ -55,7 +55,7 @@ class TemplateScreenModelTest {
         val templateInteractor = stand.interactors.templateInteractor
         val templateId = templateInteractor.create(standBaseUrl = ScreenTestStand.BASE_URL, name = "Тестовый шаблон")
         val setup = BikeSetup(
-            simulatorId = ScreenTestStand.FOUND_SIMULATOR_ID,
+            bikeNumber = ScreenTestStand.FOUND_BIKE_NUMBER,
             location = GeoPoint(latitude = 43.424838, longitude = 39.928128),
             target = ChargeTarget.State(ChargeState.NORMAL),
             availability = AvailabilityTarget.Keep,

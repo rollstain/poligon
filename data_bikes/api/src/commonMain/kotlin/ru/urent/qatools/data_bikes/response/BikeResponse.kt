@@ -13,6 +13,8 @@ data class BikeResponse(
     val identifier: String?,
     @SerialName("vendorId")
     val vendorId: String?,
+    @SerialName("trackerId")
+    val trackerImei: String?,
     @SerialName("model")
     val model: Model?,
     @SerialName("bikeCity")

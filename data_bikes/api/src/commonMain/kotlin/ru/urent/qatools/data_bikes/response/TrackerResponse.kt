@@ -24,5 +24,7 @@ data class TrackerResponse(
     data class Values(
         @SerialName("mainBatteryVoltage")
         val mainBatteryVoltage: Double?,
+        @SerialName("mainBatteryPercent")
+        val mainBatteryPercent: Double?,
     )
 }

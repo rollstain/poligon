@@ -32,7 +32,7 @@ class TemplateInteractorTest {
         interactor.addBike(
             templateId = templateId,
             setup = BikeSetup(
-                simulatorId = SIMULATOR_ID,
+                bikeNumber = BIKE_NUMBER,
                 location = GeoPoint(43.42, 39.93),
                 target = ChargeTarget.State(ChargeState.LOW),
                 availability = needsRepair,
@@ -74,7 +74,7 @@ class TemplateInteractorTest {
         interactor.addBike(
             templateId = templateId,
             setup = BikeSetup(
-                simulatorId = SIMULATOR_ID,
+                bikeNumber = BIKE_NUMBER,
                 location = GeoPoint(43.42, 39.93),
                 target = ChargeTarget.State(ChargeState.LOW),
                 availability = AvailabilityTarget.Disabled(reasonName = "NeedsRepair", reasonTitle = "Требует ремонта"),
@@ -96,7 +96,7 @@ class TemplateInteractorTest {
     private companion object {
         const val STAND = "https://tm-0.dev.urent.ru"
         const val TEMPLATE_NAME = "Смоук QA"
-        const val SIMULATOR_ID = 4071
+        const val BIKE_NUMBER = 4071
         const val INTERNAL_ERROR_CODE = 500
         val AppliedAt = Instant.parse("2026-10-18T00:29:33Z")
     }

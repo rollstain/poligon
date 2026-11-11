@@ -23,7 +23,7 @@ class QuickSetupScreenModelTest {
         val stand = ScreenTestStand()
         val screenModel = screenModel(stand, emptyFlow())
 
-        screenModel.dispatch(QuickSetupEvent.OnSimulatorIdChanged(ScreenTestStand.FOUND_SIMULATOR_ID.toString()))
+        screenModel.dispatch(QuickSetupEvent.OnBikeNumberChanged(ScreenTestStand.FOUND_BIKE_NUMBER.toString()))
 
         val state = withTimeout(WAIT_TIMEOUT_MS) {
             screenModel.stateFlow.first { it.lookup is BikeLookup.Found && it.zones.parkings.isNotEmpty() }
@@ -37,7 +37,7 @@ class QuickSetupScreenModelTest {
         val stand = ScreenTestStand(rejectedBikeRequests = 1)
         val reconnections = MutableSharedFlow<Unit>()
         val screenModel = screenModel(stand, reconnections)
-        screenModel.dispatch(QuickSetupEvent.OnSimulatorIdChanged(ScreenTestStand.FOUND_SIMULATOR_ID.toString()))
+        screenModel.dispatch(QuickSetupEvent.OnBikeNumberChanged(ScreenTestStand.FOUND_BIKE_NUMBER.toString()))
         withTimeout(WAIT_TIMEOUT_MS) { screenModel.stateFlow.first { it.lookup is BikeLookup.Failed } }
         screenModel.dispatch(QuickSetupEvent.OnCoordinatesTextChanged(PIN_TEXT))
 

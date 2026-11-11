@@ -15,7 +15,7 @@ import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.core_entities.TileSource
 
 data class QuickSetupState(
-    val simulatorIdText: String,
+    val bikeNumberText: String,
     val lookup: BikeLookup?,
     val isLookingUp: Boolean,
     val isRefreshingBike: Boolean,

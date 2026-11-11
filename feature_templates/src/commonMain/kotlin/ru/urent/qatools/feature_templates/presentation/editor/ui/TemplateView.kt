@@ -229,7 +229,7 @@ private fun BikeList(state: TemplateState, onEvent: (TemplateEvent) -> Unit) {
             if (state.rows.isEmpty()) {
                 HorizontalDivider(thickness = QaDimens.dividerThickness, color = QaColors.stroke)
                 Text(
-                    "В шаблоне пока нет байков — добавьте первый по номеру в симуляторе",
+                    "В шаблоне пока нет байков — добавьте первый по номеру",
                     modifier = Modifier.padding(QaDimens.spaceL),
                     color = QaColors.textSecondary,
                 )
@@ -254,12 +254,15 @@ private fun BikeList(state: TemplateState, onEvent: (TemplateEvent) -> Unit) {
                         .fillMaxWidth()
                         .clickable { onEvent(TemplateEvent.OnBikeClicked(row.bike)) }
                         .padding(horizontal = QaDimens.spaceL, vertical = QaDimens.spaceM)
-                        .semantics { contentDescription = "Байк S.${setup.simulatorId}" },
+                        .semantics { contentDescription = "Байк S.${setup.bikeNumber}" },
                     verticalArrangement = Arrangement.spacedBy(QaDimens.spaceS),
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("S.${setup.simulatorId}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        StatusLineView(bikeResultLine(row.status, row.isChangedSinceApply))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("S.${setup.bikeNumber}", style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                        StatusLineView(
+                            line = bikeResultLine(row.status, row.isChangedSinceApply),
+                            modifier = Modifier.padding(start = QaDimens.spaceM).weight(1f, fill = false),
+                        )
                     }
                     if (lookup is BikeLookup.Failed) {
                         Text(failureText(lookup.failure), style = MaterialTheme.typography.bodySmall, color = QaColors.negative)
@@ -293,9 +296,9 @@ private fun BikeList(state: TemplateState, onEvent: (TemplateEvent) -> Unit) {
         Column(modifier = Modifier.padding(QaDimens.spaceL), verticalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
                 QaTextField(
-                    value = newBike.simulatorIdText,
+                    value = newBike.bikeNumberText,
                     onValueChange = { text -> onEvent(TemplateEvent.OnNewBikeTextChanged(text)) },
-                    label = "Добавить байк: номер в симуляторе",
+                    label = "Добавить байк: номер",
                     modifier = Modifier
                         .weight(1f)
                         .onPreviewKeyEvent { event ->
@@ -335,7 +338,7 @@ private fun BikeCard(row: TemplateBikeRow, state: TemplateState, onEvent: (Templ
         )
         Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(QaDimens.spaceXs)) {
-                Text("S.${setup.simulatorId}", style = MaterialTheme.typography.headlineSmall)
+                Text("S.${setup.bikeNumber}", style = MaterialTheme.typography.headlineSmall)
                 Text(
                     text = when (lookup) {
                         null -> "Загружаем…"
@@ -346,7 +349,10 @@ private fun BikeCard(row: TemplateBikeRow, state: TemplateState, onEvent: (Templ
                     color = if (lookup is BikeLookup.Failed) QaColors.negative else QaColors.textSecondary,
                 )
             }
-            StatusLineView(bikeResultLine(row.status, row.isChangedSinceApply))
+            StatusLineView(
+                line = bikeResultLine(row.status, row.isChangedSinceApply),
+                modifier = Modifier.padding(start = QaDimens.spaceM).weight(1f, fill = false),
+            )
         }
         Column(verticalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
             Text("Заряд после применения", style = MaterialTheme.typography.titleSmall)
@@ -355,6 +361,7 @@ private fun BikeCard(row: TemplateBikeRow, state: TemplateState, onEvent: (Templ
                 onTargetChange = { target -> onEvent(TemplateEvent.OnChargeChanged(bike, target)) },
                 thresholds = found?.thresholds,
                 currentPercent = found?.chargePercent,
+                isEmptyReachable = found == null || ChargeCalculator.isEmptyReachable(found.emulator, found.thresholds),
             )
         }
         AvailabilityField(
@@ -362,7 +369,7 @@ private fun BikeCard(row: TemplateBikeRow, state: TemplateState, onEvent: (Templ
             reasons = state.reasons,
             onTargetChange = { availability -> onEvent(TemplateEvent.OnAvailabilityChanged(bike, availability)) },
             label = "Доступ после применения",
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Доступ S.${setup.simulatorId}" },
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Доступ S.${setup.bikeNumber}" },
         )
         Column(verticalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
             SuggestionField(
@@ -385,7 +392,7 @@ private fun BikeCard(row: TemplateBikeRow, state: TemplateState, onEvent: (Templ
                 suggestionIcon = {},
                 emptyText = if (state.cityTechZones.isEmpty()) "Техзоны стенда не загрузились" else "Такой техзоны нет",
                 menuWidth = TechZoneMenuWidth,
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Техзона S.${setup.simulatorId}" },
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Техзона S.${setup.bikeNumber}" },
             )
             Text(
                 "Байк встанет в центр техзоны. Точнее — перетащите пин на карте",
@@ -439,7 +446,7 @@ private fun MapCard(modifier: Modifier, state: TemplateState, tileLoader: MapTil
                             val task = (row.lookup as? BikeLookup.Found)?.bike?.status?.driverTask
                             BikePin(
                                 id = row.bike.id.toString(),
-                                label = row.bike.setup.simulatorId.toString(),
+                                label = row.bike.setup.bikeNumber.toString(),
                                 location = row.bike.setup.location,
                                 color = chargeTargetColor(row.bike.setup.target),
                                 isSelected = row.bike.id == state.selectedBikeId,
@@ -471,7 +478,7 @@ private fun MapCard(modifier: Modifier, state: TemplateState, tileLoader: MapTil
                 text = if (selectedRow == null) {
                     "Нажмите на байк в списке или его пин, чтобы изменить заряд, доступ или место"
                 } else {
-                    "S.${selectedRow.bike.setup.simulatorId}: перетащите пин или выберите техзону слева"
+                    "S.${selectedRow.bike.setup.bikeNumber}: перетащите пин или выберите техзону слева"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (selectedRow == null) QaColors.textSecondary else QaColors.brandText,

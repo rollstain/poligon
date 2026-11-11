@@ -9,7 +9,7 @@ import ru.urent.qatools.base_bike_setup.entities.Template
 import ru.urent.qatools.core_entities.GeoPoint
 
 sealed interface QuickSetupEvent {
-    data class OnSimulatorIdChanged(val text: String) : QuickSetupEvent
+    data class OnBikeNumberChanged(val text: String) : QuickSetupEvent
 
     data object OnRefreshBikeClicked : QuickSetupEvent
 

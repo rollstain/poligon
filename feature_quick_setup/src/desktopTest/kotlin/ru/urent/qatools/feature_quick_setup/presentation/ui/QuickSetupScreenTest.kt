@@ -47,7 +47,7 @@ class QuickSetupScreenTest {
     fun standFactsStandInStripRightOfBike() = runDesktopComposeUiTest(width = WIDE_CONTENT_WIDTH, height = CONTENT_HEIGHT) {
         showFoundBike(this)
 
-        val bikeTitle = onNodeWithText("S.${ScreenTestStand.FOUND_SIMULATOR_ID}").getUnclippedBoundsInRoot()
+        val bikeTitle = onNodeWithText("S.${ScreenTestStand.FOUND_BIKE_NUMBER}").getUnclippedBoundsInRoot()
         val target = onNodeWithText("Станет после применения").getUnclippedBoundsInRoot()
         for (fact in listOf("Связь", "GPS", "Доступ")) {
             val bounds = onNodeWithText(fact).getUnclippedBoundsInRoot()
@@ -101,7 +101,7 @@ class QuickSetupScreenTest {
                 QaTheme(isDark = false) { screen.Content() }
             }
         }
-        test.onNode(hasSetTextAction() and hasText("Номер в симуляторе")).performTextInput(ScreenTestStand.FOUND_SIMULATOR_ID.toString())
+        test.onNode(hasSetTextAction() and hasText("Номер байка")).performTextInput(ScreenTestStand.FOUND_BIKE_NUMBER.toString())
         test.waitUntil(timeoutMillis = LOOKUP_TIMEOUT_MS) { screenModel.stateFlow.value.lookup is BikeLookup.Found }
         test.waitForIdle()
     }
@@ -112,6 +112,6 @@ class QuickSetupScreenTest {
         const val CONTENT_HEIGHT = 868
         const val LOOKUP_TIMEOUT_MS = 5_000L
         const val MAP_HINT = "Перетащите пин или кликните по карте"
-        const val FOUND_BIKE_QR_TEXT = "http://ure.su/a/S.${ScreenTestStand.FOUND_SIMULATOR_ID}"
+        const val FOUND_BIKE_QR_TEXT = "http://ure.su/a/S.${ScreenTestStand.FOUND_BIKE_NUMBER}"
     }
 }

@@ -18,14 +18,14 @@ class ScreenTestStand(private val rejectedBikeRequests: Int = 0) {
         when (request.url.encodedPath) {
             SIMULATOR_STATUS_PATH -> respond(SIMULATOR_STATUS_JSON, HttpStatusCode.OK, TextHeaders)
             "/trackers/api/trackers/tracker/$IMEI" -> respond(TRACKER_JSON, HttpStatusCode.OK, JsonHeaders)
-            "/bikes/api/bikes/identifier/S.$FOUND_SIMULATOR_ID" -> {
+            "/bikes/api/bikes/identifier/S.$FOUND_BIKE_NUMBER" -> {
                 val isRejected = bikeRequests < rejectedBikeRequests
                 bikeRequests += 1
                 if (isRejected) respondError(HttpStatusCode.Forbidden) else respond(BIKE_JSON, HttpStatusCode.OK, JsonHeaders)
             }
             "/drivernavtelecom/api/trackers/tracker/$IMEI" -> respond(fixture("/tracker-driver.json"), HttpStatusCode.OK, JsonHeaders)
             "/gateway-adm/api/bikes/models/$MODEL_ID" -> respond(fixture("/model.json"), HttpStatusCode.OK, JsonHeaders)
-            "/gateway-ocelot/api/v1/pickupdropoff-api/tasks/byTransportId/S.$FOUND_SIMULATOR_ID" ->
+            "/gateway-ocelot/api/v1/pickupdropoff-api/tasks/byTransportId/S.$FOUND_BIKE_NUMBER" ->
                 respond(fixture("/driver-task.json"), HttpStatusCode.OK, JsonHeaders)
             "/bikes/api/disabledreasons/allowed" -> respond(fixture("/disabled-reasons.json"), HttpStatusCode.OK, JsonHeaders)
             "/gateway-ocelot/api/v1/location-api/sapp/Parking/list" -> respond(PARKING_LIST_JSON, HttpStatusCode.OK, JsonHeaders)
@@ -39,8 +39,8 @@ class ScreenTestStand(private val rejectedBikeRequests: Int = 0) {
 
     companion object {
         const val BASE_URL = TestStandInteractors.BASE_URL
-        const val FOUND_SIMULATOR_ID = 4071
-        const val MISSING_SIMULATOR_ID = 4072
+        const val FOUND_BIKE_NUMBER = 4071
+        const val MISSING_BIKE_NUMBER = 4072
         const val BIKE_PARKING_NAME = "Тестовая парковка"
         val Tiles = TileSource(urlTemplate = "https://tiles.test/{z}/{x}/{y}", subdomains = emptyList(), urlSuffix = "")
 
@@ -62,6 +62,7 @@ class ScreenTestStand(private val rejectedBikeRequests: Int = 0) {
               "id": "605b34168c1efdb51cfed7a4",
               "identifier": "S.4071",
               "vendorId": "URB",
+              "trackerId": "$IMEI",
               "model": {"id": "6065d2f5ef64db1143f1dec4", "name": "Ninebot L 60L"},
               "bikeCity": {"cityId": "5f9b2468f0e5ce0001b638e9", "cityName": "Адлер"},
               "charge": {"batteryPercent": 0.625, "status": "Ok"},

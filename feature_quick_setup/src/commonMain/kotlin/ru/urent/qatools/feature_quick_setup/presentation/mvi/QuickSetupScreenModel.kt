@@ -43,7 +43,7 @@ class QuickSetupScreenModel(
 ) : BaseScreenModel<QuickSetupState, QuickSetupSideEffect, QuickSetupEvent>(
     componentContext = componentContext,
     initialState = QuickSetupState(
-        simulatorIdText = "",
+        bikeNumberText = "",
         lookup = null,
         isLookingUp = false,
         isRefreshingBike = false,
@@ -78,7 +78,7 @@ class QuickSetupScreenModel(
 
     override fun dispatch(event: QuickSetupEvent) {
         when (event) {
-            is QuickSetupEvent.OnSimulatorIdChanged -> onSimulatorIdChanged(event.text)
+            is QuickSetupEvent.OnBikeNumberChanged -> onBikeNumberChanged(event.text)
             QuickSetupEvent.OnRefreshBikeClicked -> onRefreshBikeClicked()
             is QuickSetupEvent.OnQrCodeClicked -> screenModelScope { postSideEffect(QuickSetupSideEffect.OpenQrCode(bikeQrCodeText(event.bike))) }
             is QuickSetupEvent.OnTargetChanged -> updateState { it.copy(target = event.target, status = null) }
@@ -124,16 +124,16 @@ class QuickSetupScreenModel(
         updateState { it.copy(mapCenter = mapCenter) }
     }
 
-    private fun onSimulatorIdChanged(text: String) {
-        val simulatorId = text.trim().toIntOrNull()
+    private fun onBikeNumberChanged(text: String) {
+        val bikeNumber = text.trim().toIntOrNull()
         updateState {
-            it.copy(simulatorIdText = text, lookup = null, isLookingUp = simulatorId != null, status = null, message = null)
+            it.copy(bikeNumberText = text, lookup = null, isLookingUp = bikeNumber != null, status = null, message = null)
         }
         lookupJob?.cancel()
-        if (simulatorId == null) return
+        if (bikeNumber == null) return
         lookupJob = screenModelScope {
             delay(LOOKUP_DEBOUNCE_MS.milliseconds)
-            val result = bikeSetupInteractor.lookup(simulatorId)
+            val result = bikeSetupInteractor.lookup(standBaseUrl = standBaseUrl, bikeNumber = bikeNumber)
             val foundBike = (result as? BikeLookup.Found)?.bike
             val bikeLocation = foundBike?.location
             val location = bikeLocation ?: state.location
@@ -162,7 +162,7 @@ class QuickSetupScreenModel(
         val found = current.lookup as? BikeLookup.Found ?: return
         updateState { it.copy(isRefreshingBike = true) }
         screenModelScope {
-            val refreshed = bikeSetupInteractor.lookup(found.bike.simulatorId)
+            val refreshed = bikeSetupInteractor.lookup(standBaseUrl = standBaseUrl, bikeNumber = found.bike.bikeNumber)
             val refreshedBike = (refreshed as? BikeLookup.Found)?.bike
             val applied = current.status as? ApplyStatus.Done
             val location = current.location
@@ -171,13 +171,13 @@ class QuickSetupScreenModel(
                 return@screenModelScope
             }
             val setup = BikeSetup(
-                simulatorId = refreshedBike.simulatorId,
+                bikeNumber = refreshedBike.bikeNumber,
                 location = location,
                 target = current.target,
                 availability = current.availability,
             )
             val confirmed = bikeSetupInteractor.confirmRecalculatedCharge(setup = setup, applied = applied, bike = refreshedBike)
-            val lookupAfterConfirm = if (confirmed == applied) refreshed else bikeSetupInteractor.lookup(refreshedBike.simulatorId)
+            val lookupAfterConfirm = if (confirmed == applied) refreshed else bikeSetupInteractor.lookup(standBaseUrl = standBaseUrl, bikeNumber = refreshedBike.bikeNumber)
             updateState { it.copy(lookup = lookupAfterConfirm, status = confirmed, isRefreshingBike = false) }
         }
     }
@@ -217,7 +217,7 @@ class QuickSetupScreenModel(
         val found = current.lookup as? BikeLookup.Found ?: return
         val location = current.location ?: return
         val setup = BikeSetup(
-            simulatorId = found.bike.simulatorId,
+            bikeNumber = found.bike.bikeNumber,
             location = location,
             target = current.target,
             availability = current.availability,
@@ -225,7 +225,7 @@ class QuickSetupScreenModel(
         updateState { it.copy(isApplying = true, message = null) }
         screenModelScope {
             bikeSetupInteractor.apply(standBaseUrl = standBaseUrl, setup = setup).collect { status -> updateState { it.copy(status = status) } }
-            val refreshed = bikeSetupInteractor.lookup(found.bike.simulatorId)
+            val refreshed = bikeSetupInteractor.lookup(standBaseUrl = standBaseUrl, bikeNumber = found.bike.bikeNumber)
             updateState { it.copy(isApplying = false, lookup = refreshed) }
         }
     }
@@ -235,7 +235,7 @@ class QuickSetupScreenModel(
         val found = current.lookup as? BikeLookup.Found ?: return
         val location = current.location ?: return
         val setup = BikeSetup(
-            simulatorId = found.bike.simulatorId,
+            bikeNumber = found.bike.bikeNumber,
             location = location,
             target = current.target,
             availability = current.availability,
@@ -265,13 +265,13 @@ class QuickSetupScreenModel(
         screenModelScope { loadCities() }
         val city = state.city
         if (city != null) screenModelScope { switchCity(city) }
-        val simulatorId = state.simulatorIdText.trim().toIntOrNull() ?: return
+        val bikeNumber = state.bikeNumberText.trim().toIntOrNull() ?: return
         lookupJob?.cancel()
-        lookupJob = screenModelScope { refreshBikeKeepingPin(simulatorId) }
+        lookupJob = screenModelScope { refreshBikeKeepingPin(bikeNumber) }
     }
 
-    private suspend fun refreshBikeKeepingPin(simulatorId: Int) {
-        val result = bikeSetupInteractor.lookup(simulatorId)
+    private suspend fun refreshBikeKeepingPin(bikeNumber: Int) {
+        val result = bikeSetupInteractor.lookup(standBaseUrl = standBaseUrl, bikeNumber = bikeNumber)
         val foundBike = (result as? BikeLookup.Found)?.bike
         val pinnedLocation = state.location
         val location = pinnedLocation ?: foundBike?.location

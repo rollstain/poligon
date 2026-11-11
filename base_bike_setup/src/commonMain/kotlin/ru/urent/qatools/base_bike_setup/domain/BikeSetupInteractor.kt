@@ -1,6 +1,8 @@
 package ru.urent.qatools.base_bike_setup.domain
 
 import kotlin.time.Duration
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.delay
@@ -25,6 +27,7 @@ import ru.urent.qatools.base_bike_setup.entities.ChargeThresholds
 import ru.urent.qatools.base_bike_setup.entities.DisabledReason
 import ru.urent.qatools.base_bike_setup.entities.DriverTask
 import ru.urent.qatools.base_bike_setup.entities.TemplateBike
+import ru.urent.qatools.base_bike_setup.entities.TrackerEmulator
 import ru.urent.qatools.base_bike_setup.entities.VoltageRange
 import ru.urent.qatools.core_entities.BatteryCapacityCategory
 import ru.urent.qatools.core_entities.GeoPoint
@@ -32,40 +35,67 @@ import ru.urent.qatools.core_entities.RequestFailure
 import ru.urent.qatools.core_entities.RequestResult
 import ru.urent.qatools.core_logger.AppLog
 import ru.urent.qatools.data_bikes.BikesRepository
+import ru.urent.qatools.data_bikes.response.TrackerResponse
+import ru.urent.qatools.data_simulator.OmniEmulatorRepository
 import ru.urent.qatools.data_simulator.SimulatorRepository
+import ru.urent.qatools.data_simulator.VoiEmulatorRepository
 
 class BikeSetupInteractor(
     private val bikesRepository: BikesRepository,
     private val simulatorRepository: SimulatorRepository,
+    private val omniEmulatorRepository: OmniEmulatorRepository,
+    private val voiEmulatorRepository: VoiEmulatorRepository,
     private val bikeMapper: BikeMapper,
     private val log: AppLog,
 ) {
 
-    suspend fun lookup(simulatorId: Int): BikeLookup {
-        val imei = IMEI_PREFIX + simulatorId.toString().padStart(IMEI_NUMBER_LENGTH, IMEI_PAD_CHAR)
+    suspend fun lookup(standBaseUrl: String, bikeNumber: Int): BikeLookup {
+        val identifier = IDENTIFIER_PREFIX + bikeNumber
+        val bike = when (val loaded = bikesRepository.getBike(identifier)) {
+            is RequestResult.Error -> return BikeLookup.Failed(notFoundOr(loaded.failure, ApplyFailure.BikeNotFound))
+            is RequestResult.Success -> loaded.data
+        }
+        val bikeId = bike.id ?: return BikeLookup.Failed(ApplyFailure.BikeNotFound)
+        val modelId = bike.model?.id ?: return BikeLookup.Failed(ApplyFailure.NoChargeThresholds)
+        val imei = bike.trackerImei
+        if (imei.isNullOrBlank()) return BikeLookup.Failed(ApplyFailure.TrackerNotLinked)
         val tracker = when (val loaded = bikesRepository.getTracker(imei)) {
             is RequestResult.Error -> return BikeLookup.Failed(notFoundOr(loaded.failure, ApplyFailure.TrackerNotFound))
             is RequestResult.Success -> loaded.data
         }
-        val identifier = tracker.identifier
-        if (identifier.isNullOrBlank()) return BikeLookup.Failed(ApplyFailure.BikeNotLinked)
         val driver = tracker.driver.orEmpty()
-        if (driver != NAVTELECOM_DRIVER) return BikeLookup.Failed(ApplyFailure.UnsupportedDriver(driver))
-
-        val bike = when (val loaded = bikesRepository.getBike(identifier)) {
-            is RequestResult.Error -> return BikeLookup.Failed(notFoundOr(loaded.failure, ApplyFailure.BikeNotLinked))
-            is RequestResult.Success -> loaded.data
+        val emulator = when (driver) {
+            NAVTELECOM_DRIVER -> {
+                val simulatorImei = IMEI_PREFIX + bikeNumber.toString().padStart(IMEI_NUMBER_LENGTH, IMEI_PAD_CHAR)
+                if (imei != simulatorImei) return BikeLookup.Failed(ApplyFailure.TrackerNotEmulated(imei))
+                val settings = when (val loaded = bikesRepository.getTrackerSettings(imei)) {
+                    is RequestResult.Error -> return BikeLookup.Failed(applyFailureOf(loaded.failure))
+                    is RequestResult.Success -> loaded.data
+                }
+                val minVolts = settings.minVoltageOneBattery
+                val maxVolts = settings.maxVoltageOneBattery
+                if (minVolts == null || maxVolts == null || maxVolts <= minVolts) return BikeLookup.Failed(ApplyFailure.NoVoltageRange)
+                TrackerEmulator.NavtelecomSimulator(simulatorId = bikeNumber, voltageRange = VoltageRange(minVolts = minVolts, maxVolts = maxVolts))
+            }
+            OMNI_DRIVER -> {
+                val isEmulated = when (val loaded = omniEmulatorRepository.isTrackerEmulated(baseUrl = standBaseUrl, imei = imei)) {
+                    is RequestResult.Error -> return BikeLookup.Failed(applyFailureOf(loaded.failure))
+                    is RequestResult.Success -> loaded.data
+                }
+                if (!isEmulated) return BikeLookup.Failed(ApplyFailure.TrackerNotEmulated(imei))
+                TrackerEmulator.Omni
+            }
+            VOI_DRIVER -> {
+                val device = when (val loaded = voiEmulatorRepository.getDevice(baseUrl = standBaseUrl, imei = imei)) {
+                    is RequestResult.Error -> return BikeLookup.Failed(applyFailureOf(loaded.failure))
+                    is RequestResult.Success -> loaded.data
+                }
+                if (device == null) return BikeLookup.Failed(ApplyFailure.TrackerNotEmulated(imei))
+                val reportIntervalMs = maxOf(device.lockedReportIntervalMs ?: 0, device.unlockedReportIntervalMs ?: 0)
+                TrackerEmulator.Voi(reportInterval = reportIntervalMs.milliseconds)
+            }
+            else -> return BikeLookup.Failed(ApplyFailure.UnsupportedDriver(driver))
         }
-        val bikeId = bike.id ?: return BikeLookup.Failed(ApplyFailure.BikeNotLinked)
-        val modelId = bike.model?.id ?: return BikeLookup.Failed(ApplyFailure.NoChargeThresholds)
-
-        val settings = when (val loaded = bikesRepository.getTrackerSettings(imei)) {
-            is RequestResult.Error -> return BikeLookup.Failed(applyFailureOf(loaded.failure))
-            is RequestResult.Success -> loaded.data
-        }
-        val minVolts = settings.minVoltageOneBattery
-        val maxVolts = settings.maxVoltageOneBattery
-        if (minVolts == null || maxVolts == null || maxVolts <= minVolts) return BikeLookup.Failed(ApplyFailure.NoVoltageRange)
 
         val model = when (val loaded = bikesRepository.getTransportModel(modelId)) {
             is RequestResult.Error -> return BikeLookup.Failed(applyFailureOf(loaded.failure))
@@ -109,7 +139,7 @@ class BikeSetupInteractor(
             driverTask = driverTaskOf(identifier),
         )
         val context = BikeContext(
-            simulatorId = simulatorId,
+            bikeNumber = bikeNumber,
             imei = imei,
             bikeId = bikeId,
             vendorId = bike.vendorId.orEmpty(),
@@ -120,7 +150,7 @@ class BikeSetupInteractor(
             chargePercent = if (batteryFraction == null) null else batteryFraction * PERCENT_IN_FRACTION,
             chargeState = bike.charge?.status,
             location = location,
-            voltageRange = VoltageRange(minVolts = minVolts, maxVolts = maxVolts),
+            emulator = emulator,
             thresholds = ChargeThresholds(
                 emptyPercent = empty,
                 powerOffPercent = powerOff,
@@ -140,29 +170,31 @@ class BikeSetupInteractor(
 
     fun apply(standBaseUrl: String, setup: BikeSetup): Flow<ApplyStatus> = flow {
         emit(ApplyStatus.Resolving)
-        val bike = when (val lookup = lookup(setup.simulatorId)) {
+        val bike = when (val lookup = lookup(standBaseUrl = standBaseUrl, bikeNumber = setup.bikeNumber)) {
             is BikeLookup.Failed -> {
                 emit(ApplyStatus.Failed(lookup.failure))
                 return@flow
             }
             is BikeLookup.Found -> lookup.bike
         }
-        val percent = ChargeCalculator.targetPercent(setup.target, bike.thresholds)
-        val millivolts = ChargeCalculator.millivolts(setup.target, bike.thresholds, bike.voltageRange)
-        val sendFailure = send(standBaseUrl = standBaseUrl, simulatorId = setup.simulatorId, location = setup.location, millivolts = millivolts)
+        val percent = when (bike.emulator) {
+            is TrackerEmulator.NavtelecomSimulator -> ChargeCalculator.targetPercent(setup.target, bike.thresholds)
+            TrackerEmulator.Omni, is TrackerEmulator.Voi -> ChargeCalculator.wholePercent(setup.target, bike.thresholds).toDouble()
+        }
+        val sendFailure = send(standBaseUrl = standBaseUrl, bike = bike, setup = setup)
         if (sendFailure != null) {
             emit(ApplyStatus.Failed(sendFailure))
             return@flow
         }
         emit(ApplyStatus.WaitingForTracker(percent))
-        val confirmation = confirm(standBaseUrl = standBaseUrl, bike = bike, setup = setup, millivolts = millivolts)
+        val confirmation = confirm(standBaseUrl = standBaseUrl, bike = bike, setup = setup, percent = percent)
         if (confirmation !is ApplyStatus.Done) {
             emit(confirmation)
             return@flow
         }
         val availabilityFailure = changeAvailability(bike = bike, target = setup.availability)
         emit(if (availabilityFailure == null) confirmation else ApplyStatus.Failed(availabilityFailure))
-    }.onEach { status -> log.info("S.${setup.simulatorId}: $status") }
+    }.onEach { status -> log.info("S.${setup.bikeNumber}: $status") }
 
     suspend fun confirmRecalculatedCharge(setup: BikeSetup, applied: ApplyStatus.Done, bike: BikeContext): ApplyStatus {
         val target = setup.target
@@ -180,7 +212,7 @@ class BikeSetupInteractor(
             ApplyStatus.Failed(availabilityFailure)
         }
         val repeatedAvailabilityText = if (isLowBatteryReasonLeftByStand) ", доступ выставлен повторно вместо «Низкий заряд батареи»" else ""
-        log.info("S.${setup.simulatorId}: стенд пересчитал заряд$repeatedAvailabilityText: $result")
+        log.info("S.${setup.bikeNumber}: стенд пересчитал заряд$repeatedAvailabilityText: $result")
         return result
     }
 
@@ -240,57 +272,100 @@ class BikeSetupInteractor(
         return if (isApplied) null else ApplyFailure.AvailabilityIgnored(isDisabled = isDisabled, currentReason = currentReason)
     }
 
-    private suspend fun send(standBaseUrl: String, simulatorId: Int, location: GeoPoint, millivolts: Int): ApplyFailure? {
-        val located = simulatorRepository.setLocation(baseUrl = standBaseUrl, simulatorId = simulatorId, location = location)
-        if (located is RequestResult.Error) return applyFailureOf(located.failure)
-        val charged = simulatorRepository.setVoltage(baseUrl = standBaseUrl, simulatorId = simulatorId, millivolts = millivolts)
-        if (charged is RequestResult.Error) return applyFailureOf(charged.failure)
-        return null
+    private suspend fun send(standBaseUrl: String, bike: BikeContext, setup: BikeSetup): ApplyFailure? {
+        val sent = when (val emulator = bike.emulator) {
+            is TrackerEmulator.NavtelecomSimulator -> {
+                val located = simulatorRepository.setLocation(baseUrl = standBaseUrl, simulatorId = emulator.simulatorId, location = setup.location)
+                if (located is RequestResult.Error) return applyFailureOf(located.failure)
+                val millivolts = ChargeCalculator.millivolts(setup.target, bike.thresholds, emulator.voltageRange)
+                simulatorRepository.setVoltage(baseUrl = standBaseUrl, simulatorId = emulator.simulatorId, millivolts = millivolts)
+            }
+            TrackerEmulator.Omni -> omniEmulatorRepository.setChargeAndLocation(
+                baseUrl = standBaseUrl,
+                imei = bike.imei,
+                chargePercent = ChargeCalculator.wholePercent(setup.target, bike.thresholds),
+                location = setup.location,
+            )
+            is TrackerEmulator.Voi -> {
+                val located = voiEmulatorRepository.setLocation(baseUrl = standBaseUrl, imei = bike.imei, location = setup.location)
+                if (located is RequestResult.Error) return applyFailureOf(located.failure)
+                voiEmulatorRepository.setBatteryPercent(
+                    baseUrl = standBaseUrl,
+                    imei = bike.imei,
+                    batteryPercent = ChargeCalculator.wholePercent(setup.target, bike.thresholds),
+                )
+            }
+        }
+        return if (sent is RequestResult.Error) applyFailureOf(sent.failure) else null
     }
 
-    private suspend fun confirm(standBaseUrl: String, bike: BikeContext, setup: BikeSetup, millivolts: Int): ApplyStatus {
-        val simulator = when (val loaded = simulatorRepository.getStatus(baseUrl = standBaseUrl, simulatorId = setup.simulatorId)) {
-            is RequestResult.Error -> return ApplyStatus.Failed(applyFailureOf(loaded.failure))
-            is RequestResult.Success -> loaded.data
+    private suspend fun confirm(standBaseUrl: String, bike: BikeContext, setup: BikeSetup, percent: Double): ApplyStatus {
+        val waited = when (val emulator = bike.emulator) {
+            is TrackerEmulator.NavtelecomSimulator -> {
+                val simulator = when (val loaded = simulatorRepository.getStatus(baseUrl = standBaseUrl, simulatorId = emulator.simulatorId)) {
+                    is RequestResult.Error -> return ApplyStatus.Failed(applyFailureOf(loaded.failure))
+                    is RequestResult.Success -> loaded.data
+                }
+                val pingSeconds = simulator.pingSeconds ?: return ApplyStatus.Failed(ApplyFailure.Unexpected(null))
+                val millivolts = ChargeCalculator.millivolts(setup.target, bike.thresholds, emulator.voltageRange)
+                awaitTelemetry(imei = bike.imei, timeout = (pingSeconds + REPORT_GRACE_SECONDS).seconds) { telemetry ->
+                    val voltage = telemetry.mainBatteryVoltage
+                    voltage != null && ChargeCalculator.toMillivolts(voltage) == millivolts
+                }
+            }
+            TrackerEmulator.Omni -> awaitTelemetry(
+                imei = bike.imei,
+                timeout = OMNI_REPORT_INTERVAL * REPORTS_UNTIL_NEW_CHARGE + REPORT_GRACE_SECONDS.seconds,
+            ) { telemetry ->
+                telemetry.mainBatteryPercent?.roundToInt() == percent.roundToInt()
+            }
+            is TrackerEmulator.Voi -> awaitTelemetry(
+                imei = bike.imei,
+                timeout = emulator.reportInterval * REPORTS_UNTIL_NEW_CHARGE + REPORT_GRACE_SECONDS.seconds,
+            ) { telemetry ->
+                telemetry.mainBatteryPercent?.roundToInt() == percent.roundToInt()
+            }
         }
-        val pingSeconds = simulator.pingSeconds ?: return ApplyStatus.Failed(ApplyFailure.Unexpected(null))
-        val timeout = (pingSeconds + PING_GRACE_SECONDS).seconds
-        val isVoltageReported = when (val waited = awaitVoltage(imei = bike.imei, millivolts = millivolts, timeout = timeout)) {
+        val isChargeReported = when (waited) {
             is RequestResult.Error -> return ApplyStatus.Failed(applyFailureOf(waited.failure))
             is RequestResult.Success -> waited.data
         }
-        if (!isVoltageReported) return ApplyStatus.Failed(ApplyFailure.NotConfirmed)
+        if (!isChargeReported) return ApplyStatus.Failed(ApplyFailure.NotConfirmed)
         val charge = when (val loaded = bikesRepository.getBike(bike.identifier)) {
             is RequestResult.Error -> return ApplyStatus.Failed(applyFailureOf(loaded.failure))
             is RequestResult.Success -> loaded.data.charge
         }
         val target = setup.target
         return ApplyStatus.Done(
-            percent = ChargeCalculator.targetPercent(target, bike.thresholds),
+            percent = percent,
             state = charge?.status,
             isTargetReached = target !is ChargeTarget.State || charge?.status == target.state,
             availability = setup.availability,
         )
     }
 
-    private suspend fun awaitVoltage(imei: String, millivolts: Int, timeout: Duration): RequestResult<Boolean> {
+    private suspend fun awaitTelemetry(
+        imei: String,
+        timeout: Duration,
+        isReported: (TrackerResponse.Values) -> Boolean,
+    ): RequestResult<Boolean> {
         val reported = withTimeoutOrNull(timeout) {
-            var check = isVoltageReported(imei = imei, millivolts = millivolts)
+            var check = isTelemetryReported(imei = imei, isReported = isReported)
             while (check is RequestResult.Success && !check.data) {
                 delay(POLL_INTERVAL)
-                check = isVoltageReported(imei = imei, millivolts = millivolts)
+                check = isTelemetryReported(imei = imei, isReported = isReported)
             }
             check
         }
         return reported ?: RequestResult.Success(false)
     }
 
-    private suspend fun isVoltageReported(imei: String, millivolts: Int): RequestResult<Boolean> =
+    private suspend fun isTelemetryReported(imei: String, isReported: (TrackerResponse.Values) -> Boolean): RequestResult<Boolean> =
         when (val loaded = bikesRepository.getTracker(imei)) {
             is RequestResult.Error -> loaded
             is RequestResult.Success -> {
-                val voltage = loaded.data.telemetry?.values?.mainBatteryVoltage
-                RequestResult.Success(voltage != null && ChargeCalculator.toMillivolts(voltage) == millivolts)
+                val telemetry = loaded.data.telemetry?.values
+                RequestResult.Success(telemetry != null && isReported(telemetry))
             }
         }
 
@@ -307,18 +382,23 @@ class BikeSetupInteractor(
     }
 
     private companion object {
+        const val IDENTIFIER_PREFIX = "S."
         const val IMEI_PREFIX = "3"
         const val IMEI_NUMBER_LENGTH = 14
         const val IMEI_PAD_CHAR = '0'
         const val NAVTELECOM_DRIVER = "driver.scooter.tracker.navtelecom.api"
+        const val OMNI_DRIVER = "driver.scooter.omni.api"
+        const val VOI_DRIVER = "driver.scooter.voi.api"
         const val DISABLE_DESCRIPTION = "Полигон"
         const val LOW_BATTERY_REASON_NAME = "LowBattery"
         const val PERCENT_IN_FRACTION = 100.0
-        const val PING_GRACE_SECONDS = 30
+        const val REPORT_GRACE_SECONDS = 30
+        const val REPORTS_UNTIL_NEW_CHARGE = 2
         const val MAX_PARALLEL_BIKES = 4
         const val BAD_REQUEST_STATUS_CODE = 400
         const val NOT_FOUND_STATUS_CODE = 404
         val POLL_INTERVAL = 5.seconds
+        val OMNI_REPORT_INTERVAL = 90.seconds
         val notFoundStatusCodes = setOf(BAD_REQUEST_STATUS_CODE, NOT_FOUND_STATUS_CODE)
     }
 }

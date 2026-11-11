@@ -13,7 +13,7 @@ data class BikeSettingsEntity(
     val disabledReasonTitle: String?,
 )
 
-data class BikeSetupEntity(val simulatorId: Int, val location: GeoPoint, val settings: BikeSettingsEntity)
+data class BikeSetupEntity(val bikeNumber: Int, val location: GeoPoint, val settings: BikeSettingsEntity)
 
 data class TemplateBikeEntity(val id: Long, val setup: BikeSetupEntity)
 

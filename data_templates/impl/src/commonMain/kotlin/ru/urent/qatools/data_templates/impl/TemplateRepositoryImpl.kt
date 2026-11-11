@@ -69,7 +69,7 @@ internal class TemplateRepositoryImpl(private val database: BikeSetupDatabase) :
             val results = mutableListOf<ApplyResultEntity>()
             for (row in rows) {
                 val setup = BikeSetupEntity(
-                    simulatorId = row.simulator_id.toInt(),
+                    bikeNumber = row.simulator_id.toInt(),
                     location = GeoPoint(latitude = row.latitude, longitude = row.longitude),
                     settings = settingsOf(
                         targetState = row.target_state,
@@ -110,7 +110,7 @@ internal class TemplateRepositoryImpl(private val database: BikeSetupDatabase) :
         val settings = setup.settings
         queries.insertBike(
             template_id = templateId,
-            simulator_id = setup.simulatorId.toLong(),
+            simulator_id = setup.bikeNumber.toLong(),
             latitude = setup.location.latitude,
             longitude = setup.location.longitude,
             target_state = settings.targetState?.name,
@@ -146,7 +146,7 @@ internal class TemplateRepositoryImpl(private val database: BikeSetupDatabase) :
         resultQueries.saveResult(
             template_bike_id = result.templateBikeId,
             applied_at_epoch_millis = result.appliedAtEpochMillis,
-            simulator_id = setup.simulatorId.toLong(),
+            simulator_id = setup.bikeNumber.toLong(),
             latitude = setup.location.latitude,
             longitude = setup.location.longitude,
             target_state = settings.targetState?.name,
@@ -171,7 +171,7 @@ internal class TemplateRepositoryImpl(private val database: BikeSetupDatabase) :
     private fun templateBikeOf(row: Template_bike): TemplateBikeEntity = TemplateBikeEntity(
         id = row.id,
         setup = BikeSetupEntity(
-            simulatorId = row.simulator_id.toInt(),
+            bikeNumber = row.simulator_id.toInt(),
             location = GeoPoint(latitude = row.latitude, longitude = row.longitude),
             settings = settingsOf(
                 targetState = row.target_state,

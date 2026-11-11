@@ -15,10 +15,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -151,7 +153,7 @@ class BikeSetupInteractorTest {
         )
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
 
-        val lookup = stand.interactor().lookup(SIMULATOR_ID)
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
 
         assertTrue(lookup is BikeLookup.Found, "lookup: $lookup")
         val status = lookup.bike.status
@@ -170,7 +172,7 @@ class BikeSetupInteractorTest {
     fun failingDriverTaskRequestDoesNotBreakLookup() = runTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(driverTaskStatus = HttpStatusCode.InternalServerError))
 
-        val lookup = stand.interactor().lookup(SIMULATOR_ID)
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
 
         assertTrue(lookup is BikeLookup.Found, "lookup: $lookup")
         assertNull(lookup.bike.status.driverTask)
@@ -180,7 +182,7 @@ class BikeSetupInteractorTest {
     fun increasedBatteryUsesIncreasedThresholdsOfModel() = runTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(batteryCategory = "Increased", model = TWO_CATEGORY_MODEL_JSON))
 
-        val lookup = stand.interactor().lookup(SIMULATOR_ID)
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
 
         assertTrue(lookup is BikeLookup.Found, "lookup: $lookup")
         assertEquals(BatteryCapacityCategory.INCREASED, lookup.bike.status.batteryCategory)
@@ -191,7 +193,7 @@ class BikeSetupInteractorTest {
     fun unknownTrackerIsReportedAsTrackerNotFound() = runTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(trackerStatus = HttpStatusCode.BadRequest))
 
-        val lookup = stand.interactor().lookup(SIMULATOR_ID)
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
 
         assertEquals(BikeLookup.Failed(ApplyFailure.TrackerNotFound), lookup)
         assertTrue(stand.simulatorPosts.isEmpty())
@@ -199,12 +201,117 @@ class BikeSetupInteractorTest {
 
     @Test
     fun trackerOfOtherDriverIsNotSupported() = runTest {
-        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(trackerDriver = OMNI_DRIVER))
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(trackerDriver = LIME_DRIVER))
 
         val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.Percent(50.0), AvailabilityTarget.Keep)).toList()
 
-        assertEquals(ApplyStatus.Failed(ApplyFailure.UnsupportedDriver(OMNI_DRIVER)), statuses.last())
+        assertEquals(ApplyStatus.Failed(ApplyFailure.UnsupportedDriver(LIME_DRIVER)), statuses.last())
         assertTrue(stand.simulatorPosts.isEmpty())
+    }
+
+    @Test
+    fun missingBikeIsReportedAsBikeNotFound() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(bikeStatus = HttpStatusCode.NotFound))
+
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
+
+        assertEquals(BikeLookup.Failed(ApplyFailure.BikeNotFound), lookup)
+    }
+
+    @Test
+    fun navtelecomTrackerOutsideSimulatorIsNotEmulated() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(trackerImei = REAL_NAVTELECOM_IMEI))
+
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
+
+        assertEquals(BikeLookup.Failed(ApplyFailure.TrackerNotEmulated(REAL_NAVTELECOM_IMEI)), lookup)
+    }
+
+    @Test
+    fun omniBikeGetsWholePercentAndCoordinateFromEmulator() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(trackerDriver = OMNI_DRIVER, trackerImei = OMNI_IMEI))
+        val location = GeoPoint(43.42485, 39.92816)
+
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Keep, location)).toList()
+
+        assertEquals(ApplyStatus.WaitingForTracker(LOW_WHOLE_PERCENT), statuses[1])
+        val done = statuses.last()
+        assertTrue(done is ApplyStatus.Done, "last status: $done")
+        assertEquals(ChargeState.LOW, done.state)
+        assertTrue(done.isTargetReached)
+        val body = Json.parseToJsonElement(stand.omniPosts.single()) as JsonObject
+        assertEquals(LOW_WHOLE_PERCENT.toInt().toString(), body.getValue("chargePercentage").jsonPrimitive.content)
+        assertEquals("43.42485, 39.92816", body.getValue("forcedCoordinate").jsonPrimitive.content)
+        assertTrue(stand.simulatorPosts.isEmpty())
+    }
+
+    @Test
+    fun omniChargeArrivingOnSecondReportAfterChangeIsConfirmed() = runTest {
+        val scenario = StandScenario(trackerDriver = OMNI_DRIVER, trackerImei = OMNI_IMEI, emulatorChargeReportDelay = OMNI_OBSERVED_CHARGE_DELAY)
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
+
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Keep)).toList()
+
+        val done = statuses.last()
+        assertTrue(done is ApplyStatus.Done, "last status: $done")
+    }
+
+    @Test
+    fun omniTrackerUnknownToEmulatorIsNotEmulated() = runTest {
+        val scenario = StandScenario(trackerDriver = OMNI_DRIVER, trackerImei = OMNI_IMEI, isTrackerEmulated = false)
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
+
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Keep)).toList()
+
+        assertEquals(ApplyStatus.Failed(ApplyFailure.TrackerNotEmulated(OMNI_IMEI)), statuses.last())
+        assertTrue(stand.omniPosts.isEmpty())
+    }
+
+    @Test
+    fun voiBikeKeepsOtherDeviceSettingsWhenChargeChanges() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(trackerDriver = VOI_DRIVER, trackerImei = VOI_IMEI))
+        val location = GeoPoint(43.42485, 39.92816)
+
+        val statuses = stand.interactor().apply(
+            standBaseUrl = BASE_URL,
+            setup = setup(ChargeTarget.State(ChargeState.NEED_TO_CHANGE), AvailabilityTarget.Keep, location),
+        ).toList()
+
+        val done = statuses.last()
+        assertTrue(done is ApplyStatus.Done, "last status: $done")
+        assertEquals(ChargeState.NEED_TO_CHANGE, done.state)
+        val original = Json.parseToJsonElement(VOI_DEVICE_JSON) as JsonObject
+        val sent = Json.parseToJsonElement(stand.voiDevicePosts.single()) as JsonObject
+        assertEquals(original.keys, sent.keys)
+        assertEquals(original - "batteryPercent", sent - "batteryPercent")
+        assertEquals(NEED_TO_CHANGE_WHOLE_PERCENT.toString(), sent.getValue("batteryPercent").jsonPrimitive.content)
+        val coordinates = Json.parseToJsonElement(stand.voiCoordinatePosts.single()) as JsonObject
+        assertEquals(location.latitude.toString(), coordinates.getValue("lat").jsonPrimitive.content)
+        assertEquals(location.longitude.toString(), coordinates.getValue("lng").jsonPrimitive.content)
+    }
+
+    @Test
+    fun voiChargeArrivingOnSecondReportAfterChangeIsConfirmed() = runTest {
+        val scenario = StandScenario(trackerDriver = VOI_DRIVER, trackerImei = VOI_IMEI, emulatorChargeReportDelay = VOI_OBSERVED_CHARGE_DELAY)
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
+
+        val statuses = stand.interactor().apply(
+            standBaseUrl = BASE_URL,
+            setup = setup(ChargeTarget.State(ChargeState.NEED_TO_CHANGE), AvailabilityTarget.Keep),
+        ).toList()
+
+        val done = statuses.last()
+        assertTrue(done is ApplyStatus.Done, "last status: $done")
+    }
+
+    @Test
+    fun voiTrackerNotRunningInEmulatorIsNotEmulated() = runTest {
+        val scenario = StandScenario(trackerDriver = VOI_DRIVER, trackerImei = VOI_IMEI, isTrackerEmulated = false)
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
+
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
+
+        assertEquals(BikeLookup.Failed(ApplyFailure.TrackerNotEmulated(VOI_IMEI)), lookup)
     }
 
     @Test
@@ -216,7 +323,7 @@ class BikeSetupInteractorTest {
         )
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
         val interactor = stand.interactor()
-        val bike = (interactor.lookup(SIMULATOR_ID) as BikeLookup.Found).bike
+        val bike = (interactor.lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER) as BikeLookup.Found).bike
         val readyForUse = AvailabilityTarget.Disabled(reasonName = READY_FOR_USE_TAG, reasonTitle = READY_FOR_USE_TITLE)
         val waiting = ApplyStatus.Done(percent = 62.5, state = ChargeState.LOW, isTargetReached = false, availability = readyForUse)
 
@@ -238,7 +345,7 @@ class BikeSetupInteractorTest {
         )
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
         val interactor = stand.interactor()
-        val bike = (interactor.lookup(SIMULATOR_ID) as BikeLookup.Found).bike
+        val bike = (interactor.lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER) as BikeLookup.Found).bike
         val readyForUse = AvailabilityTarget.Disabled(reasonName = READY_FOR_USE_TAG, reasonTitle = READY_FOR_USE_TITLE)
         val waiting = ApplyStatus.Done(percent = 62.5, state = ChargeState.LOW, isTargetReached = false, availability = readyForUse)
 
@@ -257,7 +364,7 @@ class BikeSetupInteractorTest {
         )
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
         val interactor = stand.interactor()
-        val bike = (interactor.lookup(SIMULATOR_ID) as BikeLookup.Found).bike
+        val bike = (interactor.lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER) as BikeLookup.Found).bike
         val waiting = ApplyStatus.Done(percent = 12.5, state = ChargeState.NORMAL, isTargetReached = false, availability = AvailabilityTarget.Available)
 
         val result = interactor.confirmRecalculatedCharge(setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Available), waiting, bike)
@@ -271,7 +378,7 @@ class BikeSetupInteractorTest {
         val scenario = StandScenario(disabledReason = READY_FOR_USE_TITLE, disabledReasonTags = listOf(READY_FOR_USE_TAG, LOW_BATTERY_TAG))
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
         val interactor = stand.interactor()
-        val bike = (interactor.lookup(SIMULATOR_ID) as BikeLookup.Found).bike
+        val bike = (interactor.lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER) as BikeLookup.Found).bike
         val readyForUse = AvailabilityTarget.Disabled(reasonName = READY_FOR_USE_TAG, reasonTitle = READY_FOR_USE_TITLE)
         val waiting = ApplyStatus.Done(percent = 62.5, state = ChargeState.LOW, isTargetReached = false, availability = readyForUse)
 
@@ -293,11 +400,14 @@ class BikeSetupInteractorTest {
     }
 
     private fun setup(target: ChargeTarget, availability: AvailabilityTarget, location: GeoPoint = GeoPoint(43.0, 39.0)) =
-        BikeSetup(simulatorId = SIMULATOR_ID, location = location, target = target, availability = availability)
+        BikeSetup(bikeNumber = BIKE_NUMBER, location = location, target = target, availability = availability)
 
     private data class StandScenario(
         val trackerDriver: String = NAVTELECOM_DRIVER,
+        val trackerImei: String = IMEI,
         val trackerStatus: HttpStatusCode = HttpStatusCode.OK,
+        val bikeStatus: HttpStatusCode = HttpStatusCode.OK,
+        val isTrackerEmulated: Boolean = true,
         val isConnected: Boolean = true,
         val connectionLostAt: String? = null,
         val isGpsLost: Boolean = false,
@@ -311,20 +421,27 @@ class BikeSetupInteractorTest {
         val disabledReasonTags: List<String> = emptyList(),
         val initialMillivolts: Int = INITIAL_MILLIVOLTS,
         val stalePercent: Double? = null,
+        val emulatorChargeReportDelay: Duration = Duration.ZERO,
     )
 
     private data class AvailabilityRequest(val path: String, val vendors: String?, val body: String)
 
-    private class FakeStand(dispatcher: CoroutineDispatcher, private val scenario: StandScenario) {
+    private class FakeStand(private val testDispatcher: TestDispatcher, private val scenario: StandScenario) {
         var lastMillivolts = scenario.initialMillivolts
         val simulatorPosts = mutableListOf<Parameters>()
         val availabilityRequests = mutableListOf<AvailabilityRequest>()
+        val omniPosts = mutableListOf<String>()
+        val voiDevicePosts = mutableListOf<String>()
+        val voiCoordinatePosts = mutableListOf<String>()
+        private var emulatorPercent: Double? = null
+        private var emulatorPercentSentAtMs = 0L
+        private var voiDevice = VOI_DEVICE_JSON
         private var disabledReason = scenario.disabledReason
         private var disabledReasonTags = scenario.disabledReasonTags
 
         private val engine = MockEngine(
             MockEngineConfig().apply {
-                this.dispatcher = dispatcher
+                dispatcher = testDispatcher
                 addHandler { request ->
                     val path = request.url.encodedPath
                     when {
@@ -335,18 +452,46 @@ class BikeSetupInteractorTest {
                             respond(SIMULATOR_STATUS_JSON, HttpStatusCode.OK, textHeaders)
                         }
                         path == SIMULATOR_STATUS_PATH -> respond(SIMULATOR_STATUS_JSON, HttpStatusCode.OK, textHeaders)
-                        path == "/trackers/api/trackers/tracker/$IMEI" && scenario.trackerStatus != HttpStatusCode.OK ->
+                        path == "/trackers/api/trackers/tracker/${scenario.trackerImei}" && scenario.trackerStatus != HttpStatusCode.OK ->
                             respondError(scenario.trackerStatus)
-                        path == "/trackers/api/trackers/tracker/$IMEI" -> respond(trackerJson(), HttpStatusCode.OK, jsonHeaders)
-                        path == "/bikes/api/bikes/identifier/S.$SIMULATOR_ID" -> respond(bikeJson(), HttpStatusCode.OK, jsonHeaders)
+                        path == "/trackers/api/trackers/tracker/${scenario.trackerImei}" -> respond(trackerJson(), HttpStatusCode.OK, jsonHeaders)
+                        path == "/bikes/api/bikes/identifier/S.$BIKE_NUMBER" && scenario.bikeStatus != HttpStatusCode.OK ->
+                            respondError(scenario.bikeStatus)
+                        path == "/bikes/api/bikes/identifier/S.$BIKE_NUMBER" -> respond(bikeJson(), HttpStatusCode.OK, jsonHeaders)
+                        path == "$OMNI_TRACKERS_PATH/${scenario.trackerImei}" && request.method == HttpMethod.Post -> {
+                            val body = request.body.toByteArray().decodeToString()
+                            omniPosts.add(body)
+                            emulatorPercent = numberField(body, "chargePercentage")
+                            emulatorPercentSentAtMs = testDispatcher.scheduler.currentTime
+                            respond("", HttpStatusCode.OK, jsonHeaders)
+                        }
+                        path == "$OMNI_TRACKERS_PATH/${scenario.trackerImei}" && scenario.isTrackerEmulated ->
+                            respond(OMNI_TRACKER_JSON, HttpStatusCode.OK, jsonHeaders)
+                        path == "$OMNI_TRACKERS_PATH/${scenario.trackerImei}" -> respondError(HttpStatusCode.NotFound)
+                        path == "$VOI_EMULATOR_PATH/coordinates/${scenario.trackerImei}" -> {
+                            voiCoordinatePosts.add(request.body.toByteArray().decodeToString())
+                            respond("", HttpStatusCode.OK, jsonHeaders)
+                        }
+                        path == "$VOI_EMULATOR_PATH/${scenario.trackerImei}" && request.method == HttpMethod.Post -> {
+                            val body = request.body.toByteArray().decodeToString()
+                            voiDevicePosts.add(body)
+                            voiDevice = body
+                            emulatorPercent = numberField(body, "batteryPercent")
+                            emulatorPercentSentAtMs = testDispatcher.scheduler.currentTime
+                            respond("", HttpStatusCode.OK, jsonHeaders)
+                        }
+                        path == "$VOI_EMULATOR_PATH/${scenario.trackerImei}" && scenario.isTrackerEmulated ->
+                            respond(voiDevice, HttpStatusCode.OK, jsonHeaders)
+                        path == "$VOI_EMULATOR_PATH/${scenario.trackerImei}" ->
+                            respond("not found ${scenario.trackerImei}", HttpStatusCode.BadRequest, textHeaders)
                         path == "/drivernavtelecom/api/trackers/tracker/$IMEI" ->
                             respond(fixture("/tracker-driver.json"), HttpStatusCode.OK, jsonHeaders)
                         path == "/gateway-adm/api/bikes/models/$MODEL_ID" ->
                             respond(scenario.model ?: fixture("/model.json"), HttpStatusCode.OK, jsonHeaders)
-                        path == "/gateway-ocelot/api/v1/pickupdropoff-api/tasks/byTransportId/S.$SIMULATOR_ID" &&
+                        path == "/gateway-ocelot/api/v1/pickupdropoff-api/tasks/byTransportId/S.$BIKE_NUMBER" &&
                             scenario.driverTaskStatus == HttpStatusCode.OK ->
                             respond(fixture("/driver-task.json"), HttpStatusCode.OK, jsonHeaders)
-                        path == "/gateway-ocelot/api/v1/pickupdropoff-api/tasks/byTransportId/S.$SIMULATOR_ID" ->
+                        path == "/gateway-ocelot/api/v1/pickupdropoff-api/tasks/byTransportId/S.$BIKE_NUMBER" ->
                             respondError(scenario.driverTaskStatus)
                         path == "/bikes/api/disabledreasons/allowed" ->
                             respond(fixture("/disabled-reasons.json"), HttpStatusCode.OK, jsonHeaders)
@@ -373,15 +518,21 @@ class BikeSetupInteractorTest {
 
         private fun trackerJson(): String = """
             {
-              "identifier": "S.$SIMULATOR_ID",
+              "identifier": "S.$BIKE_NUMBER",
               "driver": "${scenario.trackerDriver}",
               "location": {"lat": 43.424838, "lng": 39.928128},
-              "telemetry": {"telemetry": {"mainBatteryVoltage": ${lastMillivolts / 1000.0}}}
+              "telemetry": {"telemetry": {"mainBatteryVoltage": ${lastMillivolts / 1000.0}, "mainBatteryPercent": ${reportedPercent()}}}
             }
         """.trimIndent()
 
+        private fun reportedPercent(): Double? {
+            val sinceSentMs = testDispatcher.scheduler.currentTime - emulatorPercentSentAtMs
+            return if (sinceSentMs >= scenario.emulatorChargeReportDelay.inWholeMilliseconds) emulatorPercent else null
+        }
+
         private fun bikeJson(): String {
-            val percent = scenario.stalePercent ?: ((lastMillivolts / 1000.0 - MIN_VOLTS) / (MAX_VOLTS - MIN_VOLTS) * 100).coerceIn(0.0, 100.0)
+            val voltagePercent = ((lastMillivolts / 1000.0 - MIN_VOLTS) / (MAX_VOLTS - MIN_VOLTS) * 100).coerceIn(0.0, 100.0)
+            val percent = scenario.stalePercent ?: reportedPercent() ?: voltagePercent
             val status = when {
                 percent <= 0.0 -> "Empty"
                 percent <= 10.0 -> "ChargeIsExtremelyLow"
@@ -397,8 +548,9 @@ class BikeSetupInteractorTest {
             return """
                 {
                   "id": "$BIKE_ID",
-                  "identifier": "S.$SIMULATOR_ID",
+                  "identifier": "S.$BIKE_NUMBER",
                   "vendorId": "$VENDOR_ID",
+                  "trackerId": "${scenario.trackerImei}",
                   "model": {"id": "$MODEL_ID", "name": "Ninebot L 60L"},
                   "bikeCity": {"cityId": "5f9b2468f0e5ce0001b638e9", "cityName": "Адлер"},
                   "charge": {"batteryPercent": ${percent / 100}, "status": "$status"},
@@ -420,6 +572,9 @@ class BikeSetupInteractorTest {
 
         private fun jsonString(value: String?): String = if (value == null) "null" else "\"$value\""
 
+        private fun numberField(body: String, field: String): Double =
+            (Json.parseToJsonElement(body) as JsonObject).getValue(field).jsonPrimitive.content.toDouble()
+
         private fun reasonField(body: String, field: String): String {
             val reasonId = (Json.parseToJsonElement(body) as JsonObject).getValue("reasonId").jsonPrimitive.content
             val reasons = (Json.parseToJsonElement(fixture("/disabled-reasons.json")) as JsonObject).getValue("entries").jsonArray
@@ -433,7 +588,7 @@ class BikeSetupInteractorTest {
 
     private companion object {
         const val BASE_URL = TestStandInteractors.BASE_URL
-        const val SIMULATOR_ID = 4071
+        const val BIKE_NUMBER = 4071
         const val IMEI = "300000000004071"
         const val BIKE_ID = "605b34168c1efdb51cfed7a4"
         const val VENDOR_ID = "URB"
@@ -444,6 +599,19 @@ class BikeSetupInteractorTest {
         const val NEEDS_REPAIR_REASON_ID = "62f35c88e235ee1bcbdcc2a7"
         const val NAVTELECOM_DRIVER = "driver.scooter.tracker.navtelecom.api"
         const val OMNI_DRIVER = "driver.scooter.omni.api"
+        const val VOI_DRIVER = "driver.scooter.voi.api"
+        const val LIME_DRIVER = "driver.scooter.lime.api"
+        const val OMNI_IMEI = "666000000000026"
+        const val VOI_IMEI = "867000000000005"
+        const val REAL_NAVTELECOM_IMEI = "869000000004071"
+        const val OMNI_TRACKERS_PATH = "/emulatoromni/api/trackers"
+        const val VOI_EMULATOR_PATH = "/emulatorvoi/api/emulator"
+        const val OMNI_TRACKER_JSON = """{"trackerMovementDepsLock":"Never","isConnected":true,"chargePercentage":99,"forcedCoordinate":"","isScooterLocked":true}"""
+        const val VOI_DEVICE_JSON = """{"imei":"867000000000005","iccid":"8900000","lat":43.44815,"lng":39.907837,"locked":true,"batteryPercent":85,"signal":32,"lockSendIntervalMSec":60000,"unlockSendIntervalMSec":3000,"lockDelay":5,"isConnected":true,"isUpdateCoordinate":false}"""
+        val OMNI_OBSERVED_CHARGE_DELAY = 107.seconds
+        val VOI_OBSERVED_CHARGE_DELAY = 101.seconds
+        const val LOW_WHOLE_PERCENT = 13.0
+        const val NEED_TO_CHANGE_WHOLE_PERCENT = 20
         const val SIMULATOR_STATUS_PATH = "/simulator-signal/api/status"
         const val SIMULATOR_STATUS_JSON = """{"ID":4071,"Lat":"43.42485","Lon":"39.92816","I1":false,"Startid":4000,"Countid":110,"Ping":60}"""
         const val TWO_CATEGORY_MODEL_JSON = """

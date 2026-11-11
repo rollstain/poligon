@@ -89,7 +89,7 @@ class TemplateScreenTest {
     fun clickingBikeOpensItsCardAndMovesMapToIt() = runDesktopComposeUiTest(width = NARROW_CONTENT_WIDTH, height = CONTENT_HEIGHT) {
         val stand = ScreenTestStand()
         val screenModel = showTemplate(this, stand, createTemplate(stand))
-        val clickedBike = screenModel.stateFlow.value.rows.first { it.bike.setup.simulatorId == ScreenTestStand.FOUND_SIMULATOR_ID }.bike
+        val clickedBike = screenModel.stateFlow.value.rows.first { it.bike.setup.bikeNumber == ScreenTestStand.FOUND_BIKE_NUMBER }.bike
 
         onNodeWithContentDescription(FOUND_BIKE_ROW).performClick()
 
@@ -121,10 +121,10 @@ class TemplateScreenTest {
         showTemplate(this, stand, createTemplate(stand))
         onNodeWithContentDescription(FOUND_BIKE_ROW).performClick()
         waitUntil(timeoutMillis = WAIT_TIMEOUT_MS) {
-            onAllNodesWithContentDescription("QR-код S.${ScreenTestStand.FOUND_SIMULATOR_ID}").fetchSemanticsNodes().isNotEmpty()
+            onAllNodesWithContentDescription("QR-код S.${ScreenTestStand.FOUND_BIKE_NUMBER}").fetchSemanticsNodes().isNotEmpty()
         }
 
-        onNodeWithContentDescription("QR-код S.${ScreenTestStand.FOUND_SIMULATOR_ID}").performClick()
+        onNodeWithContentDescription("QR-код S.${ScreenTestStand.FOUND_BIKE_NUMBER}").performClick()
         waitForIdle()
 
         assertEquals(listOf<Screens>(Screens.QrCode(bikeQrText = FOUND_BIKE_QR_TEXT)), navigator.pushedScreens)
@@ -139,7 +139,7 @@ class TemplateScreenTest {
         waitForIdle()
 
         onNodeWithText(BACK_TO_LIST).assertIsDisplayed()
-        onNodeWithContentDescription("QR-код S.${ScreenTestStand.MISSING_SIMULATOR_ID}").assertDoesNotExist()
+        onNodeWithContentDescription("QR-код S.${ScreenTestStand.MISSING_BIKE_NUMBER}").assertDoesNotExist()
     }
 
     @Test
@@ -156,9 +156,9 @@ class TemplateScreenTest {
 
     private suspend fun createTemplate(stand: ScreenTestStand): Long {
         val templateId = stand.interactors.templateInteractor.create(standBaseUrl = ScreenTestStand.BASE_URL, name = "Тестовый шаблон")
-        for (simulatorId in listOf(ScreenTestStand.FOUND_SIMULATOR_ID, ScreenTestStand.MISSING_SIMULATOR_ID)) {
+        for (bikeNumber in listOf(ScreenTestStand.FOUND_BIKE_NUMBER, ScreenTestStand.MISSING_BIKE_NUMBER)) {
             val setup = BikeSetup(
-                simulatorId = simulatorId,
+                bikeNumber = bikeNumber,
                 location = BikeLocation,
                 target = ChargeTarget.State(ChargeState.NORMAL),
                 availability = AvailabilityTarget.Keep,
@@ -202,11 +202,11 @@ class TemplateScreenTest {
         const val TEMPLATE_BIKE_COUNT = 2
         const val NORMAL_PERCENT = 62.5
         const val NEW_NAME = "Смоук QA"
-        const val FOUND_BIKE_QR_TEXT = "http://ure.su/a/S.${ScreenTestStand.FOUND_SIMULATOR_ID}"
+        const val FOUND_BIKE_QR_TEXT = "http://ure.su/a/S.${ScreenTestStand.FOUND_BIKE_NUMBER}"
         const val MAP_HINT = "Нажмите на байк в списке или его пин, чтобы изменить заряд, доступ или место"
         const val BACK_TO_LIST = "← Все байки (2)"
-        const val FOUND_BIKE_ROW = "Байк S.${ScreenTestStand.FOUND_SIMULATOR_ID}"
-        const val MISSING_BIKE_ROW = "Байк S.${ScreenTestStand.MISSING_SIMULATOR_ID}"
+        const val FOUND_BIKE_ROW = "Байк S.${ScreenTestStand.FOUND_BIKE_NUMBER}"
+        const val MISSING_BIKE_ROW = "Байк S.${ScreenTestStand.MISSING_BIKE_NUMBER}"
         val BikeLocation = GeoPoint(latitude = 43.424838, longitude = 39.928128)
     }
 }

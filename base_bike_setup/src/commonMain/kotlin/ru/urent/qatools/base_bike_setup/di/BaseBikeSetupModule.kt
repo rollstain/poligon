@@ -20,6 +20,8 @@ class BaseBikeSetupModule {
             BikeSetupInteractor(
                 bikesRepository = get(),
                 simulatorRepository = get(),
+                omniEmulatorRepository = get(),
+                voiEmulatorRepository = get(),
                 bikeMapper = get(),
                 log = get(),
             )

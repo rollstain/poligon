@@ -152,7 +152,7 @@ private fun TemplateRow(card: TemplateCard, onEvent: (TemplatesEvent) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceXs),
                 ) {
                     Box(Modifier.size(BikeSwatchSize).background(chargeTargetColor(bike.setup.target), BikeSwatchShape))
-                    Text("S.${bike.setup.simulatorId}", style = MaterialTheme.typography.labelMedium)
+                    Text("S.${bike.setup.bikeNumber}", style = MaterialTheme.typography.labelMedium)
                 }
             }
             if (bikes.size > BIKES_SHOWN_IN_ROW) {

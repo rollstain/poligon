@@ -160,7 +160,7 @@ class TemplateScreenModel(
             rows.add(
                 TemplateBikeRow(
                     bike = bike,
-                    lookup = lookups[bike.setup.simulatorId],
+                    lookup = lookups[bike.setup.bikeNumber],
                     status = result?.status,
                     isChangedSinceApply = result != null && result.appliedSetup != bike.setup,
                 ),
@@ -209,17 +209,17 @@ class TemplateScreenModel(
         if (bikes.isEmpty()) return
         updateState { it.copy(isRefreshing = true) }
         screenModelScope {
-            val freshLookups = lookUp(bikes.map { it.setup.simulatorId })
+            val freshLookups = lookUp(bikes.map { it.setup.bikeNumber })
             lookups = lookups + freshLookups
             publishTemplate()
-            val confirmedSimulatorIds = mutableListOf<Int>()
+            val confirmedBikeNumbers = mutableListOf<Int>()
             for (bike in bikes) {
-                val standBike = (freshLookups[bike.setup.simulatorId] as? BikeLookup.Found)?.bike ?: continue
+                val standBike = (freshLookups[bike.setup.bikeNumber] as? BikeLookup.Found)?.bike ?: continue
                 val isConfirmed = runner.confirmRecalculatedCharge(standBaseUrl = standBaseUrl, bike = bike, standBike = standBike)
-                if (isConfirmed) confirmedSimulatorIds.add(bike.setup.simulatorId)
+                if (isConfirmed) confirmedBikeNumbers.add(bike.setup.bikeNumber)
             }
-            if (confirmedSimulatorIds.isNotEmpty()) {
-                lookups = lookups + lookUp(confirmedSimulatorIds)
+            if (confirmedBikeNumbers.isNotEmpty()) {
+                lookups = lookups + lookUp(confirmedBikeNumbers)
                 publishTemplate()
             }
             updateState { it.copy(isRefreshing = false) }
@@ -235,14 +235,14 @@ class TemplateScreenModel(
     }
 
     private fun onNewBikeTextChanged(text: String) {
-        updateState { it.copy(newBike = EmptyNewBike.copy(simulatorIdText = text)) }
+        updateState { it.copy(newBike = EmptyNewBike.copy(bikeNumberText = text)) }
         newBikeLookupJob?.cancel()
-        val simulatorId = text.trim().toIntOrNull() ?: return
+        val bikeNumber = text.trim().toIntOrNull() ?: return
         newBikeLookupJob = screenModelScope {
             delay(LOOKUP_DEBOUNCE_MS.milliseconds)
             updateState { it.copy(newBike = it.newBike.copy(isLookingUp = true)) }
-            val result = bikeSetupInteractor.lookup(simulatorId)
-            lookups = lookups + (simulatorId to result)
+            val result = bikeSetupInteractor.lookup(standBaseUrl = standBaseUrl, bikeNumber = bikeNumber)
+            lookups = lookups + (bikeNumber to result)
             updateState { it.copy(newBike = it.newBike.copy(lookup = result, isLookingUp = false)) }
             publishTemplate()
         }
@@ -254,7 +254,7 @@ class TemplateScreenModel(
         screenModelScope {
             val defaults = templateInteractor.setupDefaults.first()
             val setup = BikeSetup(
-                simulatorId = found.bike.simulatorId,
+                bikeNumber = found.bike.bikeNumber,
                 location = location,
                 target = defaults.target,
                 availability = defaults.availability,
@@ -284,9 +284,9 @@ class TemplateScreenModel(
         screenModelScope { loadCities() }
         val currentCity = city
         if (currentCity != null) screenModelScope { switchCity(currentCity) }
-        val simulatorIds = template?.bikes.orEmpty().map { it.setup.simulatorId }
+        val bikeNumbers = template?.bikes.orEmpty().map { it.setup.bikeNumber }
         screenModelScope {
-            val refreshed = lookUp(simulatorIds)
+            val refreshed = lookUp(bikeNumbers)
             lookups = lookups + refreshed
             publishTemplate()
             for (lookup in refreshed.values) {
@@ -312,18 +312,18 @@ class TemplateScreenModel(
         }
     }
 
-    private suspend fun lookUp(simulatorIds: List<Int>): Map<Int, BikeLookup> = coroutineScope {
-        val requests = simulatorIds.distinct().map { simulatorId -> async { simulatorId to bikeSetupInteractor.lookup(simulatorId) } }
+    private suspend fun lookUp(bikeNumbers: List<Int>): Map<Int, BikeLookup> = coroutineScope {
+        val requests = bikeNumbers.distinct().map { bikeNumber -> async { bikeNumber to bikeSetupInteractor.lookup(standBaseUrl = standBaseUrl, bikeNumber = bikeNumber) } }
         requests.awaitAll().toMap()
     }
 
     private fun lookUpMissing(bikes: List<TemplateBike>) {
         for (bike in bikes) {
-            val simulatorId = bike.setup.simulatorId
-            if (!requestedLookups.add(simulatorId)) continue
+            val bikeNumber = bike.setup.bikeNumber
+            if (!requestedLookups.add(bikeNumber)) continue
             screenModelScope {
-                val result = bikeSetupInteractor.lookup(simulatorId)
-                lookups = lookups + (simulatorId to result)
+                val result = bikeSetupInteractor.lookup(standBaseUrl = standBaseUrl, bikeNumber = bikeNumber)
+                lookups = lookups + (bikeNumber to result)
                 publishTemplate()
                 val foundBike = (result as? BikeLookup.Found)?.bike
                 val cityId = foundBike?.cityId
@@ -346,6 +346,6 @@ class TemplateScreenModel(
 
     private companion object {
         const val LOOKUP_DEBOUNCE_MS = 500L
-        val EmptyNewBike = NewBikeState(simulatorIdText = "", lookup = null, isLookingUp = false, canAdd = false)
+        val EmptyNewBike = NewBikeState(bikeNumberText = "", lookup = null, isLookingUp = false, canAdd = false)
     }
 }

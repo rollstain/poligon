@@ -67,6 +67,7 @@ fun ChargeTargetPicker(
     onTargetChange: (ChargeTarget) -> Unit,
     thresholds: ChargeThresholds?,
     currentPercent: Double?,
+    isEmptyReachable: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var exactText by remember { mutableStateOf("") }
@@ -90,6 +91,7 @@ fun ChargeTargetPicker(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceXs)) {
             for (state in ChargeState.entries) {
                 val isSelected = target is ChargeTarget.State && target.state == state
+                val isEnabled = state != ChargeState.EMPTY || isEmptyReachable
                 val buttonLabel = when (state) {
                     ChargeState.EMPTY -> "Пустая"
                     ChargeState.EXTREMELY_LOW -> "Сверхниз."
@@ -97,8 +99,14 @@ fun ChargeTargetPicker(
                     ChargeState.NEED_TO_CHANGE -> "Замена"
                     ChargeState.NORMAL -> "Норма"
                 }
+                val labelColor = when {
+                    !isEnabled -> QaColors.disabledContent
+                    isSelected -> QaColors.brandText
+                    else -> QaColors.textPrimary
+                }
                 Surface(
                     onClick = { onTargetChange(ChargeTarget.State(state)) },
+                    enabled = isEnabled,
                     shape = RoundedCornerShape(QaDimens.radiusField),
                     color = if (isSelected) QaColors.brandSelection else QaColors.surface,
                     border = if (isSelected) BorderStroke(SelectedBorderWidth, QaColors.brand) else BorderStroke(QaDimens.dividerThickness, QaColors.stroke),
@@ -109,25 +117,33 @@ fun ChargeTargetPicker(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(QaDimens.spaceXs),
                     ) {
-                        Box(Modifier.size(SwatchSize).background(chargeStateColor(state), SwatchShape))
+                        Box(Modifier.size(SwatchSize).background(if (isEnabled) chargeStateColor(state) else QaColors.disabledContent, SwatchShape))
                         Text(
                             buttonLabel,
                             fontSize = StateButtonLabelSize,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = if (isSelected) QaColors.brandText else QaColors.textPrimary,
+                            color = labelColor,
                             maxLines = 1,
                         )
                         if (thresholds != null) {
                             Text(
                                 thresholdRangeText(state, thresholds),
                                 fontSize = StateButtonLabelSize,
-                                color = QaColors.textSecondary,
+                                color = if (isEnabled) QaColors.textSecondary else QaColors.disabledContent,
                                 maxLines = 1,
                             )
                         }
                     }
                 }
             }
+        }
+        if (!isEmptyReachable) {
+            Text(
+                "«Пустая» недоступна: стенд считает байк этой модели пустым только при заряде ниже 0%, " +
+                    "а эмулятор трекера меньше 0% не отправляет",
+                style = MaterialTheme.typography.bodySmall,
+                color = QaColors.textSecondary,
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceM)) {
             Text("Или точный процент", style = MaterialTheme.typography.bodyMedium, color = QaColors.textSecondary, modifier = Modifier.weight(1f))
