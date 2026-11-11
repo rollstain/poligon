@@ -29,6 +29,8 @@ import java.io.File
 import java.time.LocalDate
 import ru.urent.qatools.base_bike_setup.presentation.AvailabilityField
 import ru.urent.qatools.base_bike_setup.presentation.ChargeField
+import ru.urent.qatools.base_update.presentation.isUpdateCheckAllowed
+import ru.urent.qatools.base_update.presentation.updateCheckText
 import ru.urent.qatools.core_platform.AppInfo
 import ru.urent.qatools.core_settings.AppTheme
 import ru.urent.qatools.feature_settings.presentation.mvi.SettingsEvent
@@ -229,11 +231,23 @@ private fun StandAndSupportGroups(modifier: Modifier, state: SettingsState, onEv
         }
         SettingsGroup(title = "О приложении", note = null) {
             Row(
-                modifier = Modifier.padding(horizontal = QaDimens.spaceXxl, vertical = QaDimens.spaceL),
+                modifier = Modifier.padding(start = QaDimens.spaceXxl, end = QaDimens.spaceS, top = QaDimens.spaceM, bottom = QaDimens.spaceM),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Версия", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                Text("${AppInfo.APP_NAME} ${AppInfo.version}", style = MaterialTheme.typography.bodyMedium)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(QaDimens.spaceXs)) {
+                    Text("Версия", style = MaterialTheme.typography.titleSmall)
+                    Text("${AppInfo.APP_NAME} ${AppInfo.version}", style = MaterialTheme.typography.bodySmall, color = QaColors.textSecondary)
+                    val updateCheckText = updateCheckText(state.updateStatus)
+                    if (updateCheckText != null) {
+                        Text(updateCheckText, style = MaterialTheme.typography.bodySmall, color = QaColors.textSecondary)
+                    }
+                }
+                TextButton(
+                    onClick = { onEvent(SettingsEvent.OnCheckUpdatesClicked) },
+                    enabled = isUpdateCheckAllowed(state.updateStatus),
+                ) {
+                    Text("Проверить обновления")
+                }
             }
             HorizontalDivider(thickness = QaDimens.dividerThickness, color = QaColors.stroke)
             Row(

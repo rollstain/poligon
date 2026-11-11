@@ -40,10 +40,13 @@ include(":data_templates:api")
 include(":data_templates:impl")
 include(":data_qr_code:api")
 include(":data_qr_code:impl")
+include(":data_releases:api")
+include(":data_releases:impl")
 
 include(":base_stand")
 include(":base_bike_setup")
 include(":base_map")
+include(":base_update")
 
 include(":feature_login")
 include(":feature_templates")

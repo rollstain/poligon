@@ -3,6 +3,7 @@ package ru.urent.qatools.feature_login.presentation.ui
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
@@ -10,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import ru.urent.qatools.base_stand.Stand
 import ru.urent.qatools.base_stand.StandOptions
+import ru.urent.qatools.base_update.entities.UpdateStatus
 import ru.urent.qatools.feature_login.presentation.mvi.LoginEvent
 import ru.urent.qatools.feature_login.presentation.mvi.LoginState
 import ru.urent.qatools.uikit.theme.QaTheme
@@ -52,7 +54,24 @@ class LoginViewTest {
         onNodeWithText(BRAND_TITLE).assertIsDisplayed()
     }
 
-    private fun showLogin(test: DesktopComposeUiTest) {
+    @Test
+    fun checkUpdatesButtonAsksForCheck() = runDesktopComposeUiTest(width = WINDOW_WIDTH, height = WINDOW_HEIGHT) {
+        showLogin(this)
+
+        onNodeWithText(CHECK_UPDATES).performClick()
+
+        assertEquals(listOf<LoginEvent>(LoginEvent.OnCheckUpdatesClicked), events)
+    }
+
+    @Test
+    fun checkUpdatesButtonWaitsForRunningCheck() = runDesktopComposeUiTest(width = WINDOW_WIDTH, height = WINDOW_HEIGHT) {
+        showLogin(this, updateStatus = UpdateStatus.Checking)
+
+        onNodeWithText(CHECK_UPDATES).assertIsNotEnabled()
+        onNodeWithText("Проверяем обновления…").assertIsDisplayed()
+    }
+
+    private fun showLogin(test: DesktopComposeUiTest, updateStatus: UpdateStatus = UpdateStatus.NotChecked) {
         val state = LoginState(
             baseUrl = SavedLogin.baseUrl,
             email = EMAIL,
@@ -63,6 +82,7 @@ class LoginViewTest {
             isLoginSaved = true,
             isLoading = false,
             error = null,
+            updateStatus = updateStatus,
         )
         test.setContent {
             QaTheme(isDark = false) { LoginView(state = state, onEvent = { event -> events.add(event) }) }
@@ -76,6 +96,7 @@ class LoginViewTest {
         const val WINDOW_HEIGHT = 900
         const val EMAIL = "qa.tester@urent.ru"
         const val BRAND_TITLE = "Заряд, доступ и место байков на тестовом стенде"
+        const val CHECK_UPDATES = "Проверить обновления"
         val SavedLogin = Stand(baseUrl = "https://tm-0.dev.urent.ru", email = EMAIL, hasSavedLogin = true)
         val EmailOnly = Stand(baseUrl = "https://tm-3.dev.urent.ru", email = EMAIL, hasSavedLogin = false)
         val Stands = listOf(SavedLogin, EmailOnly)

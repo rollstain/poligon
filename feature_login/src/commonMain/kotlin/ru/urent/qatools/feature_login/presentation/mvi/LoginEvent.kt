@@ -17,4 +17,6 @@ sealed interface LoginEvent {
     data class OnSavedLoginClicked(val stand: Stand) : LoginEvent
 
     data object OnLoginClicked : LoginEvent
+
+    data object OnCheckUpdatesClicked : LoginEvent
 }

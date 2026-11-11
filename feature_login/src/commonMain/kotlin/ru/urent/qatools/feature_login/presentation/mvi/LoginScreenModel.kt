@@ -1,16 +1,19 @@
 package ru.urent.qatools.feature_login.presentation.mvi
 
 import com.arkivanov.decompose.ComponentContext
+import kotlinx.coroutines.launch
 import ru.urent.qatools.base_stand.LoginResult
 import ru.urent.qatools.base_stand.Stand
 import ru.urent.qatools.base_stand.StandOptions
 import ru.urent.qatools.base_stand.StandSessionInteractor
+import ru.urent.qatools.base_update.domain.UpdateInteractor
 import ru.urent.qatools.core_base_feature.BaseScreenModel
 import ru.urent.qatools.core_logger.AppLog
 
 class LoginScreenModel(
     componentContext: ComponentContext,
     private val sessionInteractor: StandSessionInteractor,
+    private val updateInteractor: UpdateInteractor,
     log: AppLog,
 ) : BaseScreenModel<LoginState, Nothing, LoginEvent>(
     componentContext = componentContext,
@@ -24,6 +27,7 @@ class LoginScreenModel(
         isLoginSaved = false,
         isLoading = false,
         error = null,
+        updateStatus = updateInteractor.status.value,
     ),
     log = log,
 ) {
@@ -42,11 +46,15 @@ class LoginScreenModel(
             is LoginEvent.OnStandOptionSelected -> onStandOptionSelected(event)
             is LoginEvent.OnSavedLoginClicked -> onSavedLoginClicked(event.stand)
             LoginEvent.OnLoginClicked -> onLoginClicked()
+            LoginEvent.OnCheckUpdatesClicked -> onCheckUpdatesClicked()
         }
     }
 
     override fun onFetchData() {
         onFetchDataScope {
+            launch {
+                updateInteractor.status.collect { updateStatus -> updateState { it.copy(updateStatus = updateStatus) } }
+            }
             savedStands = sessionInteractor.refreshSavedStands()
             val last = savedStands.firstOrNull()
             val lastPassword = if (last == null) null else sessionInteractor.getSavedPassword(last.baseUrl)
@@ -114,6 +122,10 @@ class LoginScreenModel(
             }
             finishLogin(result)
         }
+    }
+
+    private fun onCheckUpdatesClicked() {
+        updateInteractor.check()
     }
 
     private suspend fun finishLogin(result: LoginResult) {

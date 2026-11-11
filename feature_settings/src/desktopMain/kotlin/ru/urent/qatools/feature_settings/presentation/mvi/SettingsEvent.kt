@@ -27,4 +27,6 @@ sealed interface SettingsEvent {
     data class OnDefaultTargetChanged(val target: ChargeTarget) : SettingsEvent
 
     data class OnDefaultAvailabilityChanged(val availability: AvailabilityTarget) : SettingsEvent
+
+    data object OnCheckUpdatesClicked : SettingsEvent
 }

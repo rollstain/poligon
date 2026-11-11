@@ -11,7 +11,9 @@ import ru.urent.qatools.navigation.Screens
 
 class FeatureLoginModule {
     val module = module {
-        factory { (context: ComponentContext) -> LoginScreenModel(componentContext = context, sessionInteractor = get(), log = get()) }
+        factory { (context: ComponentContext) ->
+            LoginScreenModel(componentContext = context, sessionInteractor = get(), updateInteractor = get(), log = get())
+        }
         factory<Screen>(named<Screens.Login>()) { (context: ComponentContext, _: Screens.Login) ->
             LoginScreen(screenModel = get { parametersOf(context) })
         }

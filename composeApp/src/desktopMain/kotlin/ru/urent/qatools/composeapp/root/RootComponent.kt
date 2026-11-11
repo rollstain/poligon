@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import ru.urent.qatools.base_stand.StandSession
 import ru.urent.qatools.base_stand.StandSessionInteractor
 import ru.urent.qatools.composeapp.shell.mvi.ShellScreenModel
+import ru.urent.qatools.composeapp.update.mvi.UpdateBannerScreenModel
 import ru.urent.qatools.core_base_feature.componentScope
 import ru.urent.qatools.navigation.Navigator
 import ru.urent.qatools.navigation.Screen
@@ -27,6 +28,8 @@ class RootComponent(
     private val navigation = StackNavigation<Screens>()
 
     val shell: ShellScreenModel = screenFactory.createShell(childContext(SHELL_CHILD_KEY))
+
+    val updateBanner: UpdateBannerScreenModel = screenFactory.createUpdateBanner(childContext(UPDATE_BANNER_CHILD_KEY))
 
     val stack: Value<ChildStack<Screens, Screen>> = childStack(
         source = navigation,
@@ -53,5 +56,6 @@ class RootComponent(
 
     private companion object {
         const val SHELL_CHILD_KEY = "shell"
+        const val UPDATE_BANNER_CHILD_KEY = "update_banner"
     }
 }

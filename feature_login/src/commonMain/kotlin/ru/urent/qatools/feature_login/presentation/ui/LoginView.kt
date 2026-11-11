@@ -29,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
+import ru.urent.qatools.base_update.presentation.isUpdateCheckAllowed
+import ru.urent.qatools.base_update.presentation.updateCheckText
 import ru.urent.qatools.core_platform.AppInfo
 import ru.urent.qatools.feature_login.presentation.mvi.LoginEvent
 import ru.urent.qatools.feature_login.presentation.mvi.LoginState
@@ -222,6 +225,22 @@ fun LoginView(state: LoginState, onEvent: (LoginEvent) -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                         color = QaColors.textSecondary,
                     )
+                    HorizontalDivider(thickness = QaDimens.dividerThickness, color = QaColors.stroke)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(QaDimens.spaceXs)) {
+                            Text("${AppInfo.APP_NAME} ${AppInfo.version}", style = MaterialTheme.typography.bodyMedium)
+                            val updateCheckText = updateCheckText(state.updateStatus)
+                            if (updateCheckText != null) {
+                                Text(updateCheckText, style = MaterialTheme.typography.bodySmall, color = QaColors.textSecondary)
+                            }
+                        }
+                        TextButton(
+                            onClick = { onEvent(LoginEvent.OnCheckUpdatesClicked) },
+                            enabled = isUpdateCheckAllowed(state.updateStatus),
+                        ) {
+                            Text("Проверить обновления")
+                        }
+                    }
                 }
             }
         }

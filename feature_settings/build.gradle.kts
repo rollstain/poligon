@@ -29,6 +29,7 @@ kotlin {
                 implementation(project(":core_settings:api"))
                 implementation(project(":base_stand"))
                 implementation(project(":base_bike_setup"))
+                implementation(project(":base_update"))
                 implementation(project(":navigation"))
                 implementation(project(":uikit"))
                 implementation(libs.compose.runtime)

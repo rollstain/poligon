@@ -5,6 +5,7 @@ import kotlinx.coroutines.launch
 import ru.urent.qatools.base_bike_setup.domain.BikeSetupInteractor
 import ru.urent.qatools.base_bike_setup.domain.TemplateInteractor
 import ru.urent.qatools.base_stand.StandSessionInteractor
+import ru.urent.qatools.base_update.domain.UpdateInteractor
 import ru.urent.qatools.core_base_feature.BaseScreenModel
 import ru.urent.qatools.core_logger.AppLog
 import ru.urent.qatools.core_settings.AppSettingsRepository
@@ -18,6 +19,7 @@ class SettingsScreenModel(
     private val appSettingsRepository: AppSettingsRepository,
     private val templateInteractor: TemplateInteractor,
     private val bikeSetupInteractor: BikeSetupInteractor,
+    private val updateInteractor: UpdateInteractor,
     log: AppLog,
 ) : BaseScreenModel<SettingsState, Nothing, SettingsEvent>(
     componentContext = componentContext,
@@ -32,6 +34,7 @@ class SettingsScreenModel(
         setupDefaults = null,
         reasons = emptyList(),
         dataDirectoryPath = interactor.dataDirectory.absolutePath,
+        updateStatus = updateInteractor.status.value,
     ),
     log = log,
 ) {
@@ -52,6 +55,7 @@ class SettingsScreenModel(
             is SettingsEvent.OnLogArchiveFileChosen -> onLogArchiveFileChosen(event)
             is SettingsEvent.OnDefaultTargetChanged -> onDefaultTargetChanged(event)
             is SettingsEvent.OnDefaultAvailabilityChanged -> onDefaultAvailabilityChanged(event)
+            SettingsEvent.OnCheckUpdatesClicked -> onCheckUpdatesClicked()
         }
     }
 
@@ -74,6 +78,9 @@ class SettingsScreenModel(
             launch {
                 val reasons = bikeSetupInteractor.getDisabledReasons()
                 updateState { it.copy(reasons = reasons) }
+            }
+            launch {
+                updateInteractor.status.collect { updateStatus -> updateState { it.copy(updateStatus = updateStatus) } }
             }
             sessionInteractor.refreshSavedStands()
         }
@@ -98,6 +105,10 @@ class SettingsScreenModel(
     private fun onDefaultAvailabilityChanged(event: SettingsEvent.OnDefaultAvailabilityChanged) {
         val defaults = state.setupDefaults ?: return
         screenModelScope { templateInteractor.saveSetupDefaults(defaults.copy(availability = event.availability)) }
+    }
+
+    private fun onCheckUpdatesClicked() {
+        updateInteractor.check()
     }
 
     private companion object {

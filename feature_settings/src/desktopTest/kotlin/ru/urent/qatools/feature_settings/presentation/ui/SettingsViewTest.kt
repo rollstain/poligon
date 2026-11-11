@@ -2,9 +2,11 @@ package ru.urent.qatools.feature_settings.presentation.ui
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,6 +15,7 @@ import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
 import ru.urent.qatools.base_bike_setup.entities.SetupDefaults
 import ru.urent.qatools.base_stand.Stand
+import ru.urent.qatools.base_update.entities.UpdateStatus
 import ru.urent.qatools.core_settings.AppSettings
 import ru.urent.qatools.core_settings.AppTheme
 import ru.urent.qatools.feature_settings.presentation.mvi.SettingsEvent
@@ -51,6 +54,16 @@ class SettingsViewTest {
         assertEquals(listOf<SettingsEvent>(SettingsEvent.OnLogoutClicked), events)
     }
 
+    @Test
+    fun checkUpdatesButtonAsksForCheckAndShowsLastResult() = runDesktopComposeUiTest(width = CONTENT_WIDTH, height = CONTENT_HEIGHT) {
+        showSettings(this)
+
+        onNodeWithText("Установлена последняя версия").performScrollTo().assertIsDisplayed()
+        onNodeWithText("Проверить обновления").performScrollTo().performClick()
+
+        assertEquals(listOf<SettingsEvent>(SettingsEvent.OnCheckUpdatesClicked), events)
+    }
+
     private fun showSettings(test: DesktopComposeUiTest) {
         val state = SettingsState(
             appSettings = AppSettings(
@@ -70,6 +83,7 @@ class SettingsViewTest {
             setupDefaults = SetupDefaults(target = ChargeTarget.Percent(DEFAULT_PERCENT), availability = AvailabilityTarget.Keep),
             reasons = emptyList(),
             dataDirectoryPath = DATA_DIRECTORY,
+            updateStatus = UpdateStatus.UpToDate,
         )
         test.setContent {
             QaTheme(isDark = false) { SettingsView(state = state, onEvent = { event -> events.add(event) }) }

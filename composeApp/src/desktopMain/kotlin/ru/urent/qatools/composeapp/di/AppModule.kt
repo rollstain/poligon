@@ -5,8 +5,10 @@ import org.koin.dsl.module
 import ru.urent.qatools.base_bike_setup.di.BaseBikeSetupModule
 import ru.urent.qatools.base_map.di.BaseMapModule
 import ru.urent.qatools.base_stand.BaseStandModule
+import ru.urent.qatools.base_update.di.BaseUpdateModule
 import ru.urent.qatools.composeapp.root.ScreenFactory
 import ru.urent.qatools.composeapp.shell.mvi.ShellScreenModel
+import ru.urent.qatools.composeapp.update.mvi.UpdateBannerScreenModel
 import ru.urent.qatools.core_database.CoreDatabaseModule
 import ru.urent.qatools.core_logger.impl.CoreLoggerModule
 import ru.urent.qatools.core_network.impl.CoreNetworkModule
@@ -15,6 +17,7 @@ import ru.urent.qatools.core_settings.impl.CoreSettingsModule
 import ru.urent.qatools.data_bikes.impl.DataBikesModule
 import ru.urent.qatools.data_location.impl.DataLocationModule
 import ru.urent.qatools.data_qr_code.impl.DataQrCodeModule
+import ru.urent.qatools.data_releases.impl.DataReleasesModule
 import ru.urent.qatools.data_simulator.impl.DataSimulatorModule
 import ru.urent.qatools.data_stand.impl.DataStandModule
 import ru.urent.qatools.data_templates.impl.DataTemplatesModule
@@ -30,6 +33,7 @@ class AppModule {
         factory { (context: ComponentContext) ->
             ShellScreenModel(componentContext = context, sessionInteractor = get(), appSettingsRepository = get(), log = get())
         }
+        factory { (context: ComponentContext) -> UpdateBannerScreenModel(componentContext = context, updateInteractor = get(), log = get()) }
     }
 
     val modules = listOf(
@@ -44,9 +48,11 @@ class AppModule {
         DataLocationModule().module,
         DataTemplatesModule().module,
         DataQrCodeModule().module,
+        DataReleasesModule().module,
         BaseStandModule().module,
         BaseBikeSetupModule().module,
         BaseMapModule().module,
+        BaseUpdateModule().module,
         FeatureLoginModule().module,
         FeatureTemplatesModule().module,
         FeatureQuickSetupModule().module,

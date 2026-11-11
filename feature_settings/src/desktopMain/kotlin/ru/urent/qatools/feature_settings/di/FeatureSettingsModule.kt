@@ -21,6 +21,7 @@ class FeatureSettingsModule {
                 appSettingsRepository = get(),
                 templateInteractor = get(),
                 bikeSetupInteractor = get(),
+                updateInteractor = get(),
                 log = get(),
             )
         }

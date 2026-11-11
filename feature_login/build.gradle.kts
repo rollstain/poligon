@@ -26,6 +26,7 @@ kotlin {
             implementation(project(":core_logger:api"))
             implementation(project(":core_platform"))
             implementation(project(":base_stand"))
+            implementation(project(":base_update"))
             implementation(project(":navigation"))
             implementation(project(":uikit"))
             implementation(libs.compose.runtime)

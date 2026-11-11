@@ -134,7 +134,7 @@ fun main() {
                     AppTheme.SYSTEM -> isSystemInDarkTheme()
                 }
                 CompositionLocalProvider(LocalDensity provides scaledDensity) {
-                    QaTheme(isDark = isDarkTheme) { RootContent(root) }
+                    QaTheme(isDark = isDarkTheme) { RootContent(root = root, onCloseApp = ::exitApplication) }
                 }
             }
         }
