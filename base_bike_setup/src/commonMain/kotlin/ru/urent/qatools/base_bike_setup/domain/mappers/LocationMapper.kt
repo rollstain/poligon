@@ -22,7 +22,7 @@ class LocationMapper {
             val id = entry?.id
             val name = entry?.name
             val center = toGeoPoint(entry?.center)
-            if (id == null || name == null || center == null || entry.isCity != true || entry.isDisabled == true) continue
+            if (id == null || name == null || center == null || entry.isCity != true) continue
             cities.add(City(id = id, name = name, center = center))
         }
         return cities.sortedBy { it.name.lowercase() }

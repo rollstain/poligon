@@ -16,8 +16,6 @@ data class CitiesResponse(
         val name: String?,
         @SerialName("isCity")
         val isCity: Boolean?,
-        @SerialName("isDisable")
-        val isDisabled: Boolean?,
         @SerialName("center")
         val center: CoordinateResponse?,
     )

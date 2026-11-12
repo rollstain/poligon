@@ -36,13 +36,13 @@ class LocationInteractorTest {
     }
 
     @Test
-    fun citiesKeepOnlyEnabledCities() = runTest {
+    fun citiesKeepDisabledCitiesAndSkipAreasThatAreNotCities() = runTest {
         val interactor = interactor(StandardTestDispatcher(testScheduler))
 
         val cities = interactor.getCities()
 
-        assertEquals(listOf("Адлер"), cities.map { it.name })
-        assertEquals(GeoPoint(43.425258324884446, 39.92378847312527), cities.single().center)
+        assertEquals(listOf("Адлер", "Выключенный"), cities.map { it.name })
+        assertEquals(GeoPoint(43.425258324884446, 39.92378847312527), cities.first().center)
     }
 
     @Test
