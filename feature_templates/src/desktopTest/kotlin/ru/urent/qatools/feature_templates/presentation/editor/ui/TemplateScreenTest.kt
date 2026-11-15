@@ -86,7 +86,7 @@ class TemplateScreenTest {
     }
 
     @Test
-    fun clickingBikeOpensItsCardAndMovesMapToIt() = runDesktopComposeUiTest(width = NARROW_CONTENT_WIDTH, height = CONTENT_HEIGHT) {
+    fun clickingBikeOpensItsCard() = runDesktopComposeUiTest(width = NARROW_CONTENT_WIDTH, height = CONTENT_HEIGHT) {
         val stand = ScreenTestStand()
         val screenModel = showTemplate(this, stand, createTemplate(stand))
         val clickedBike = screenModel.stateFlow.value.rows.first { it.bike.setup.bikeNumber == ScreenTestStand.FOUND_BIKE_NUMBER }.bike
@@ -94,7 +94,6 @@ class TemplateScreenTest {
         onNodeWithContentDescription(FOUND_BIKE_ROW).performClick()
 
         waitUntil(timeoutMillis = WAIT_TIMEOUT_MS) { screenModel.stateFlow.value.selectedBikeId == clickedBike.id }
-        assertEquals(clickedBike.setup.location, screenModel.stateFlow.value.focus?.point)
         onNodeWithText(BACK_TO_LIST).assertIsDisplayed()
         onNodeWithText("Заряд после применения").assertIsDisplayed()
         onNodeWithContentDescription(FOUND_BIKE_ROW).assertDoesNotExist()

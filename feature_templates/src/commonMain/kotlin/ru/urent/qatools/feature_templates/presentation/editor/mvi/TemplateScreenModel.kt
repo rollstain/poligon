@@ -24,7 +24,6 @@ import ru.urent.qatools.base_bike_setup.entities.SavedCity
 import ru.urent.qatools.base_bike_setup.entities.TechZone
 import ru.urent.qatools.base_bike_setup.entities.Template
 import ru.urent.qatools.base_bike_setup.entities.TemplateBike
-import ru.urent.qatools.base_map.MapFocus
 import ru.urent.qatools.core_base_feature.BaseScreenModel
 import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.core_entities.RequestResult
@@ -58,7 +57,6 @@ class TemplateScreenModel(
         cities = emptyList(),
         techZones = emptyList(),
         cityTechZones = emptyList(),
-        focus = null,
         newBike = EmptyNewBike,
         isDeleteConfirmVisible = false,
         tileSource = tileSource,
@@ -84,14 +82,9 @@ class TemplateScreenModel(
         when (event) {
             TemplateEvent.OnBackClicked -> screenModelScope { postSideEffect(TemplateSideEffect.Back) }
             is TemplateEvent.OnNameChanged -> onNameChanged(event.name)
-            is TemplateEvent.OnBikeClicked -> updateState {
-                it.copy(selectedBikeId = event.bike.id, focus = MapFocus(event.bike.setup.location))
-            }
+            is TemplateEvent.OnBikeClicked -> onBikeClicked(event.bike)
             is TemplateEvent.OnPinClicked -> onPinClicked(event.pinId)
-            is TemplateEvent.OnBikeTechZoneSelected -> {
-                updateState { it.copy(selectedBikeId = event.bikeId, focus = MapFocus(event.techZone.center)) }
-                screenModelScope { templateInteractor.moveBike(bikeId = event.bikeId, location = event.techZone.center) }
-            }
+            is TemplateEvent.OnBikeTechZoneSelected -> onBikeTechZoneSelected(bikeId = event.bikeId, techZone = event.techZone)
             is TemplateEvent.OnPinMoved -> onPinMoved(pinId = event.pinId, location = event.location)
             is TemplateEvent.OnParkingAreaIdle -> {
                 parkingAreaCenter = event.center
@@ -107,8 +100,8 @@ class TemplateScreenModel(
             TemplateEvent.OnApplyAllClicked -> onApplyAllClicked()
             TemplateEvent.OnRefreshStatusesClicked -> onRefreshStatusesClicked()
             is TemplateEvent.OnCitySelected -> onCitySelected(event.city)
-            is TemplateEvent.OnTechZoneSelected -> updateState { it.copy(focus = MapFocus(event.techZone.center)) }
-            is TemplateEvent.OnPointSelected -> updateState { it.copy(focus = MapFocus(event.point)) }
+            is TemplateEvent.OnTechZoneSelected -> focusMap(event.techZone.center)
+            is TemplateEvent.OnPointSelected -> focusMap(event.point)
             is TemplateEvent.OnRemoveBikeClicked -> screenModelScope { templateInteractor.deleteBike(event.bikeId) }
             is TemplateEvent.OnQrCodeClicked -> screenModelScope { postSideEffect(TemplateSideEffect.OpenQrCode(bikeQrCodeText(event.bike))) }
             is TemplateEvent.OnNewBikeTextChanged -> onNewBikeTextChanged(event.text)
@@ -188,6 +181,23 @@ class TemplateScreenModel(
         screenModelScope { templateInteractor.rename(templateId = templateId, name = name) }
     }
 
+    private fun onBikeClicked(bike: TemplateBike) {
+        updateState { it.copy(selectedBikeId = bike.id) }
+        focusMap(bike.setup.location)
+    }
+
+    private fun onBikeTechZoneSelected(bikeId: Long, techZone: TechZone) {
+        updateState { it.copy(selectedBikeId = bikeId) }
+        screenModelScope {
+            postSideEffect(TemplateSideEffect.FocusMap(techZone.center))
+            templateInteractor.moveBike(bikeId = bikeId, location = techZone.center)
+        }
+    }
+
+    private fun focusMap(point: GeoPoint) {
+        screenModelScope { postSideEffect(TemplateSideEffect.FocusMap(point)) }
+    }
+
     private fun onPinClicked(pinId: String) {
         val bikeId = pinId.toLongOrNull() ?: return
         updateState { it.copy(selectedBikeId = bikeId) }
@@ -230,7 +240,7 @@ class TemplateScreenModel(
         screenModelScope {
             val techZones = switchCity(SavedCity(id = selected.id, name = selected.name))
             val focusPoint = techZones.firstOrNull()?.center ?: selected.center
-            updateState { it.copy(focus = MapFocus(focusPoint)) }
+            postSideEffect(TemplateSideEffect.FocusMap(focusPoint))
         }
     }
 

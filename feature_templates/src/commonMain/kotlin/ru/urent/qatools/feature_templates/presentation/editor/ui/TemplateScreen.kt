@@ -2,6 +2,10 @@ package ru.urent.qatools.feature_templates.presentation.editor.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import ru.urent.qatools.base_map.BikeMapController
 import ru.urent.qatools.base_map.MapTileLoader
 import ru.urent.qatools.feature_templates.presentation.editor.mvi.TemplateScreenModel
 import ru.urent.qatools.feature_templates.presentation.editor.mvi.TemplateSideEffect
@@ -18,14 +22,21 @@ class TemplateScreen(
     override fun Content() {
         val navigator = LocalNavigator.current
         val state by screenModel.collectAsState()
-        TemplateView(state = state, tileLoader = tileLoader, onEvent = { screenModel.dispatch(event = it) })
-        screenModel.collectSideEffect { handleSideEffect(effect = it, navigator = navigator) }
+        var mapController by remember { mutableStateOf<BikeMapController?>(null) }
+        TemplateView(
+            state = state,
+            tileLoader = tileLoader,
+            onEvent = { screenModel.dispatch(event = it) },
+            onMapControllerReady = { mapController = it },
+        )
+        screenModel.collectSideEffect { handleSideEffect(effect = it, navigator = navigator, mapController = mapController) }
     }
 }
 
-private fun handleSideEffect(effect: TemplateSideEffect, navigator: Navigator) {
+private fun handleSideEffect(effect: TemplateSideEffect, navigator: Navigator, mapController: BikeMapController?) {
     when (effect) {
         TemplateSideEffect.Back -> navigator.pop()
         is TemplateSideEffect.OpenQrCode -> navigator.push(Screens.QrCode(bikeQrText = effect.text))
+        is TemplateSideEffect.FocusMap -> mapController?.focus(effect.point)
     }
 }

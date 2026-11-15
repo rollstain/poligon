@@ -130,7 +130,6 @@ class BikeMapControlsTest {
             tileSource = TileSource(urlTemplate = "https://tiles.test/{z}/{x}/{y}", subdomains = emptyList(), urlSuffix = ""),
             tileLoader = MapTileLoader(httpClient = HttpClient(MockEngine { respondError(HttpStatusCode.NotFound) }), log = SilentLog),
             initialCenter = GeoPoint(latitude = 43.42, longitude = 39.93),
-            focus = null,
             pins = pins,
             zones = EmptyMapZones,
             techZones = emptyList(),
@@ -138,6 +137,7 @@ class BikeMapControlsTest {
             onPinMoved = { _, _ -> },
             onPinClick = {},
             onParkingAreaIdle = {},
+            onMapControllerReady = {},
             onViewportIdle = onViewportIdle,
             modifier = modifier,
         )

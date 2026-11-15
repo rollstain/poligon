@@ -10,7 +10,6 @@ import ru.urent.qatools.base_bike_setup.entities.MapZones
 import ru.urent.qatools.base_bike_setup.entities.SavedCity
 import ru.urent.qatools.base_bike_setup.entities.TechZone
 import ru.urent.qatools.base_bike_setup.entities.Template
-import ru.urent.qatools.base_map.MapFocus
 import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.core_entities.TileSource
 
@@ -26,7 +25,6 @@ data class QuickSetupState(
     val coordinatesText: String,
     val isCoordinatesInvalid: Boolean,
     val mapCenter: GeoPoint?,
-    val focus: MapFocus?,
     val city: SavedCity?,
     val cities: List<City>,
     val techZones: List<TechZone>,

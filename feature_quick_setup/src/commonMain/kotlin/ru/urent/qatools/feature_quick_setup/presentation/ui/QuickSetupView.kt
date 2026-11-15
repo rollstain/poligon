@@ -45,6 +45,7 @@ import ru.urent.qatools.base_bike_setup.presentation.formatNumber
 import ru.urent.qatools.base_bike_setup.presentation.lookupLine
 import ru.urent.qatools.base_bike_setup.presentation.placementLine
 import ru.urent.qatools.base_map.BikeMap
+import ru.urent.qatools.base_map.BikeMapController
 import ru.urent.qatools.base_map.BikePin
 import ru.urent.qatools.base_map.MapLegend
 import ru.urent.qatools.base_map.MapTileLoader
@@ -66,7 +67,12 @@ private val BikeTitleWidth = 180.dp
 private val SearchFieldWidth = 340.dp
 
 @Composable
-fun QuickSetupView(state: QuickSetupState, tileLoader: MapTileLoader, onEvent: (QuickSetupEvent) -> Unit) {
+fun QuickSetupView(
+    state: QuickSetupState,
+    tileLoader: MapTileLoader,
+    onEvent: (QuickSetupEvent) -> Unit,
+    onMapControllerReady: (BikeMapController) -> Unit,
+) {
     val found = state.lookup as? BikeLookup.Found
     Column(
         modifier = Modifier
@@ -86,7 +92,14 @@ fun QuickSetupView(state: QuickSetupState, tileLoader: MapTileLoader, onEvent: (
         StandStrip(state = state, found = found, onEvent = onEvent)
         Row(modifier = Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceL)) {
             TargetColumn(state = state, found = found, onEvent = onEvent, modifier = Modifier.width(TargetColumnWidth).fillMaxHeight())
-            MapCard(state = state, found = found, tileLoader = tileLoader, onEvent = onEvent, modifier = Modifier.weight(1f).fillMaxHeight())
+            MapCard(
+                state = state,
+                found = found,
+                tileLoader = tileLoader,
+                onEvent = onEvent,
+                onMapControllerReady = onMapControllerReady,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
         }
     }
 }
@@ -239,6 +252,7 @@ private fun MapCard(
     found: BikeLookup.Found?,
     tileLoader: MapTileLoader,
     onEvent: (QuickSetupEvent) -> Unit,
+    onMapControllerReady: (BikeMapController) -> Unit,
     modifier: Modifier,
 ) {
     Surface(shape = RoundedCornerShape(QaDimens.radiusCard), color = QaColors.surface, modifier = modifier) {
@@ -270,7 +284,6 @@ private fun MapCard(
                         tileSource = tileSource,
                         tileLoader = tileLoader,
                         initialCenter = mapCenter,
-                        focus = state.focus,
                         pins = if (found == null || location == null) {
                             emptyList()
                         } else {
@@ -291,6 +304,7 @@ private fun MapCard(
                         onPinMoved = { pinId, moved -> onEvent(QuickSetupEvent.OnPinMoved(pinId, moved)) },
                         onPinClick = {},
                         onParkingAreaIdle = { center -> onEvent(QuickSetupEvent.OnParkingAreaIdle(center)) },
+                        onMapControllerReady = onMapControllerReady,
                         modifier = Modifier.fillMaxSize(),
                     )
                     PlaceSearchField(

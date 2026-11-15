@@ -2,6 +2,10 @@ package ru.urent.qatools.feature_quick_setup.presentation.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import ru.urent.qatools.base_map.BikeMapController
 import ru.urent.qatools.base_map.MapTileLoader
 import ru.urent.qatools.feature_quick_setup.presentation.mvi.QuickSetupScreenModel
 import ru.urent.qatools.feature_quick_setup.presentation.mvi.QuickSetupSideEffect
@@ -18,13 +22,20 @@ class QuickSetupScreen(
     override fun Content() {
         val navigator = LocalNavigator.current
         val state by screenModel.collectAsState()
-        QuickSetupView(state = state, tileLoader = tileLoader, onEvent = { screenModel.dispatch(event = it) })
-        screenModel.collectSideEffect { handleSideEffect(effect = it, navigator = navigator) }
+        var mapController by remember { mutableStateOf<BikeMapController?>(null) }
+        QuickSetupView(
+            state = state,
+            tileLoader = tileLoader,
+            onEvent = { screenModel.dispatch(event = it) },
+            onMapControllerReady = { mapController = it },
+        )
+        screenModel.collectSideEffect { handleSideEffect(effect = it, navigator = navigator, mapController = mapController) }
     }
 }
 
-private fun handleSideEffect(effect: QuickSetupSideEffect, navigator: Navigator) {
+private fun handleSideEffect(effect: QuickSetupSideEffect, navigator: Navigator, mapController: BikeMapController?) {
     when (effect) {
         is QuickSetupSideEffect.OpenQrCode -> navigator.push(Screens.QrCode(bikeQrText = effect.text))
+        is QuickSetupSideEffect.FocusMap -> mapController?.focus(effect.point)
     }
 }

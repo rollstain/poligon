@@ -23,7 +23,6 @@ import ru.urent.qatools.base_bike_setup.entities.TechZone
 import ru.urent.qatools.base_bike_setup.entities.Template
 import ru.urent.qatools.base_bike_setup.presentation.formatCoordinates
 import ru.urent.qatools.base_bike_setup.presentation.parseCoordinates
-import ru.urent.qatools.base_map.MapFocus
 import ru.urent.qatools.core_base_feature.BaseScreenModel
 import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.core_entities.GeoPoint
@@ -54,7 +53,6 @@ class QuickSetupScreenModel(
         coordinatesText = "",
         isCoordinatesInvalid = false,
         mapCenter = null,
-        focus = null,
         city = null,
         cities = emptyList(),
         techZones = emptyList(),
@@ -92,8 +90,8 @@ class QuickSetupScreenModel(
             }
             is QuickSetupEvent.OnCoordinatesTextChanged -> onCoordinatesTextChanged(event.text)
             is QuickSetupEvent.OnCitySelected -> onCitySelected(event.city)
-            is QuickSetupEvent.OnTechZoneSelected -> updateState { it.copy(focus = MapFocus(event.techZone.center)) }
-            is QuickSetupEvent.OnPointSelected -> updateState { it.copy(focus = MapFocus(event.point)) }
+            is QuickSetupEvent.OnTechZoneSelected -> focusMap(event.techZone.center)
+            is QuickSetupEvent.OnPointSelected -> focusMap(event.point)
             QuickSetupEvent.OnApplyClicked -> onApplyClicked()
             is QuickSetupEvent.OnAddToTemplateClicked -> onAddToTemplateClicked(event.template)
         }
@@ -139,7 +137,6 @@ class QuickSetupScreenModel(
             val location = bikeLocation ?: state.location
             val coordinatesText = if (location == null) state.coordinatesText else formatCoordinates(location)
             val mapCenter = state.mapCenter ?: location
-            val focus = if (bikeLocation == null) state.focus else MapFocus(bikeLocation)
             updateState {
                 it.copy(
                     lookup = result,
@@ -148,9 +145,9 @@ class QuickSetupScreenModel(
                     coordinatesText = coordinatesText,
                     isCoordinatesInvalid = false,
                     mapCenter = mapCenter,
-                    focus = focus,
                 )
             }
+            if (bikeLocation != null) postSideEffect(QuickSetupSideEffect.FocusMap(bikeLocation))
             val cityId = foundBike?.cityId
             val cityName = foundBike?.cityName
             if (cityId != null && cityName != null && cityId != state.city?.id) switchCity(SavedCity(id = cityId, name = cityName))
@@ -191,16 +188,15 @@ class QuickSetupScreenModel(
         val parsed = parseCoordinates(text)
         val location = parsed ?: state.location
         val mapCenter = state.mapCenter ?: parsed
-        val focus = if (parsed == null) state.focus else MapFocus(parsed)
         updateState {
             it.copy(
                 coordinatesText = text,
                 isCoordinatesInvalid = parsed == null,
                 location = location,
                 mapCenter = mapCenter,
-                focus = focus,
             )
         }
+        if (parsed != null) focusMap(parsed)
     }
 
     private fun onCitySelected(selected: City) {
@@ -208,7 +204,8 @@ class QuickSetupScreenModel(
             val techZones = switchCity(SavedCity(id = selected.id, name = selected.name))
             val center = techZones.firstOrNull()?.center ?: selected.center
             val mapCenter = state.mapCenter ?: center
-            updateState { it.copy(mapCenter = mapCenter, focus = MapFocus(center)) }
+            updateState { it.copy(mapCenter = mapCenter) }
+            postSideEffect(QuickSetupSideEffect.FocusMap(center))
         }
     }
 
@@ -281,6 +278,10 @@ class QuickSetupScreenModel(
         val cityId = foundBike?.cityId
         val cityName = foundBike?.cityName
         if (state.city == null && cityId != null && cityName != null) switchCity(SavedCity(id = cityId, name = cityName))
+    }
+
+    private fun focusMap(point: GeoPoint) {
+        screenModelScope { postSideEffect(QuickSetupSideEffect.FocusMap(point)) }
     }
 
     private fun pickLocation(location: GeoPoint) {

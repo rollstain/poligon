@@ -48,7 +48,20 @@ class TemplateScreenModelTest {
             stand.interactors.templateInteractor.getTemplate(templateId).first { it?.bikes?.single()?.setup?.location == VykhinoTechZone.center }
         }
         assertEquals(bike.id, screenModel.stateFlow.value.selectedBikeId)
-        assertEquals(VykhinoTechZone.center, screenModel.stateFlow.value.focus?.point)
+        assertEquals(TemplateSideEffect.FocusMap(VykhinoTechZone.center), withTimeout(WAIT_TIMEOUT_MS) { screenModel.sideEffectFlow.first() })
+    }
+
+    @Test
+    fun clickingBikeSelectsItAndFocusesMapOnIt() = runBlocking<Unit> {
+        val stand = ScreenTestStand()
+        val templateId = createTemplate(stand)
+        val screenModel = screenModel(stand, templateId, emptyFlow())
+        val bike = withTimeout(WAIT_TIMEOUT_MS) { screenModel.stateFlow.first { it.rows.isNotEmpty() } }.rows.single().bike
+
+        screenModel.dispatch(TemplateEvent.OnBikeClicked(bike))
+
+        assertEquals(TemplateSideEffect.FocusMap(bike.setup.location), withTimeout(WAIT_TIMEOUT_MS) { screenModel.sideEffectFlow.first() })
+        assertEquals(bike.id, screenModel.stateFlow.value.selectedBikeId)
     }
 
     private suspend fun createTemplate(stand: ScreenTestStand): Long {

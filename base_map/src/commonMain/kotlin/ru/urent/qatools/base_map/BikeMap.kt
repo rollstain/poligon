@@ -24,6 +24,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,7 +87,12 @@ data class BikePin(
     val badgeColor: Color?,
 )
 
-class MapFocus(val point: GeoPoint)
+private class MapCamera(var centroidX: Double, var centroidY: Double, var scale: Double)
+
+private val MapCameraSaver = listSaver<MapCamera, Double>(
+    save = { listOf(it.centroidX, it.centroidY, it.scale) },
+    restore = { (centroidX, centroidY, scale) -> MapCamera(centroidX = centroidX, centroidY = centroidY, scale = scale) },
+)
 
 private const val MAX_ZOOM_LEVEL = 18
 private const val TILE_SIZE_PX = 512
@@ -133,7 +140,6 @@ fun BikeMap(
     tileSource: TileSource,
     tileLoader: MapTileLoader,
     initialCenter: GeoPoint,
-    focus: MapFocus?,
     pins: List<BikePin>,
     zones: MapZones,
     techZones: List<TechZone>,
@@ -141,6 +147,7 @@ fun BikeMap(
     onPinMoved: (pinId: String, location: GeoPoint) -> Unit,
     onPinClick: (pinId: String) -> Unit,
     onParkingAreaIdle: (center: GeoPoint) -> Unit,
+    onMapControllerReady: (BikeMapController) -> Unit,
     onViewportIdle: (GeoBounds) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -161,16 +168,19 @@ fun BikeMap(
     var buttonZoomJob by remember { mutableStateOf<Job?>(null) }
     var buttonZoomTargetScale by remember { mutableStateOf(0.0) }
 
-    val mapState = remember(tileSource) {
+    val camera = rememberSaveable(saver = MapCameraSaver) {
         val start = WebMercator.toNormalized(initialCenter)
+        MapCamera(centroidX = start.x, centroidY = start.y, scale = scaleForZoom(INITIAL_ZOOM_LEVEL))
+    }
+    val mapState = remember(tileSource) {
         val state = MapState(
             levelCount = MAX_ZOOM_LEVEL + 1,
             fullWidth = FULL_SIZE_PX,
             fullHeight = FULL_SIZE_PX,
             tileSize = TILE_SIZE_PX,
         ) {
-            scroll(start.x, start.y)
-            scale(scaleForZoom(INITIAL_ZOOM_LEVEL))
+            scroll(camera.centroidX, camera.centroidY)
+            scale(camera.scale)
         }
         state.addLayer(TileStreamProvider { row, col, zoomLevel -> tileLoader.loadTile(tileSource, row, col, zoomLevel) })
         state.setMapBackground(MapColors.mapBackground)
@@ -298,6 +308,9 @@ fun BikeMap(
     LaunchedEffect(mapState) {
         mapState.idleStateFlow().collect { isIdle ->
             if (!isIdle) return@collect
+            camera.centroidX = mapState.centroidX
+            camera.centroidY = mapState.centroidY
+            camera.scale = mapState.scale
             val box = mapState.visibleBoundingBox()
             val northWest = WebMercator.toGeo(box.xLeft, box.yTop)
             val southEast = WebMercator.toGeo(box.xRight, box.yBottom)
@@ -315,10 +328,17 @@ fun BikeMap(
         }
     }
 
-    LaunchedEffect(mapState, focus) {
-        if (focus == null) return@LaunchedEffect
-        val point = WebMercator.toNormalized(focus.point)
-        mapState.scrollTo(point.x, point.y, destScale = max(mapState.scale, scaleForZoom(FOCUS_ZOOM_LEVEL)))
+    LaunchedEffect(mapState) {
+        onMapControllerReady(
+            object : BikeMapController {
+                override fun focus(point: GeoPoint) {
+                    val target = WebMercator.toNormalized(point)
+                    scope.launch {
+                        mapState.scrollTo(target.x, target.y, destScale = max(mapState.scale, scaleForZoom(FOCUS_ZOOM_LEVEL)))
+                    }
+                }
+            },
+        )
     }
 
     Box(

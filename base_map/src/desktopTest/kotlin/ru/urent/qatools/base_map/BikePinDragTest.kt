@@ -44,7 +44,6 @@ class BikePinDragTest {
                 tileSource = TileSource(urlTemplate = "https://tiles.test/{z}/{x}/{y}", subdomains = emptyList(), urlSuffix = ""),
                 tileLoader = MapTileLoader(httpClient = HttpClient(MockEngine { respondError(HttpStatusCode.NotFound) }), log = SilentLog),
                 initialCenter = PinLocation,
-                focus = null,
                 pins = listOf(BikePin(id = PIN_ID, label = PIN_ID, location = PinLocation, color = Color.Green, isSelected = isSelected, badgeColor = null)),
                 zones = EmptyMapZones,
                 techZones = emptyList(),
@@ -52,6 +51,7 @@ class BikePinDragTest {
                 onPinMoved = { _, location -> moves.add(location) },
                 onPinClick = {},
                 onParkingAreaIdle = {},
+                onMapControllerReady = {},
                 modifier = Modifier.size(MAP_SIZE_DP.dp).testTag(MAP_TAG),
             )
         }

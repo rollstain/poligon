@@ -9,7 +9,6 @@ import ru.urent.qatools.base_bike_setup.entities.DisabledReason
 import ru.urent.qatools.base_bike_setup.entities.MapZones
 import ru.urent.qatools.base_bike_setup.entities.TechZone
 import ru.urent.qatools.base_bike_setup.entities.TemplateBike
-import ru.urent.qatools.base_map.MapFocus
 import ru.urent.qatools.core_entities.TileSource
 
 data class TemplateState(
@@ -26,7 +25,6 @@ data class TemplateState(
     val cities: List<City>,
     val techZones: List<TechZone>,
     val cityTechZones: List<CityTechZones>,
-    val focus: MapFocus?,
     val newBike: NewBikeState,
     val isDeleteConfirmVisible: Boolean,
     val tileSource: TileSource?,

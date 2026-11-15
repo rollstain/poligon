@@ -66,6 +66,7 @@ import ru.urent.qatools.base_bike_setup.presentation.formatPercent
 import ru.urent.qatools.base_bike_setup.presentation.lookupLine
 import ru.urent.qatools.base_bike_setup.presentation.templateStatusLine
 import ru.urent.qatools.base_map.BikeMap
+import ru.urent.qatools.base_map.BikeMapController
 import ru.urent.qatools.base_map.BikePin
 import ru.urent.qatools.base_map.MapLegend
 import ru.urent.qatools.base_map.MapTileLoader
@@ -91,7 +92,12 @@ private val TechZoneMenuWidth = 328.dp
 private val MenuButtonSize = 44.dp
 
 @Composable
-fun TemplateView(state: TemplateState, tileLoader: MapTileLoader, onEvent: (TemplateEvent) -> Unit) {
+fun TemplateView(
+    state: TemplateState,
+    tileLoader: MapTileLoader,
+    onEvent: (TemplateEvent) -> Unit,
+    onMapControllerReady: (BikeMapController) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -195,7 +201,13 @@ fun TemplateView(state: TemplateState, tileLoader: MapTileLoader, onEvent: (Temp
                     BikeCard(row = selectedRow, state = state, onEvent = onEvent)
                 }
             }
-            MapCard(modifier = Modifier.weight(1f).fillMaxHeight(), state = state, tileLoader = tileLoader, onEvent = onEvent)
+            MapCard(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                state = state,
+                tileLoader = tileLoader,
+                onEvent = onEvent,
+                onMapControllerReady = onMapControllerReady,
+            )
         }
     }
 
@@ -420,7 +432,13 @@ private fun BikeCard(row: TemplateBikeRow, state: TemplateState, onEvent: (Templ
 }
 
 @Composable
-private fun MapCard(modifier: Modifier, state: TemplateState, tileLoader: MapTileLoader, onEvent: (TemplateEvent) -> Unit) {
+private fun MapCard(
+    modifier: Modifier,
+    state: TemplateState,
+    tileLoader: MapTileLoader,
+    onEvent: (TemplateEvent) -> Unit,
+    onMapControllerReady: (BikeMapController) -> Unit,
+) {
     Surface(shape = RoundedCornerShape(QaDimens.radiusCard), color = QaColors.surface, modifier = modifier) {
         Column(modifier = Modifier.padding(QaDimens.spaceM), verticalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
             val tileSource = state.tileSource
@@ -441,7 +459,6 @@ private fun MapCard(modifier: Modifier, state: TemplateState, tileLoader: MapTil
                         tileSource = tileSource,
                         tileLoader = tileLoader,
                         initialCenter = firstLocation,
-                        focus = state.focus,
                         pins = state.rows.map { row ->
                             val task = (row.lookup as? BikeLookup.Found)?.bike?.status?.driverTask
                             BikePin(
@@ -459,6 +476,7 @@ private fun MapCard(modifier: Modifier, state: TemplateState, tileLoader: MapTil
                         onPinMoved = { pinId, location -> onEvent(TemplateEvent.OnPinMoved(pinId, location)) },
                         onPinClick = { pinId -> onEvent(TemplateEvent.OnPinClicked(pinId)) },
                         onParkingAreaIdle = { center -> onEvent(TemplateEvent.OnParkingAreaIdle(center)) },
+                        onMapControllerReady = onMapControllerReady,
                         modifier = Modifier.fillMaxSize(),
                     )
                     PlaceSearchField(
