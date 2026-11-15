@@ -18,7 +18,7 @@ detekt {
     buildUponDefaultConfig = false
 }
 
-version = "1.2.1"
+version = "1.2.2"
 
 kotlin {
     jvm("desktop")
