@@ -15,7 +15,6 @@ import ru.urent.qatools.base_bike_setup.entities.BikeLookup
 import ru.urent.qatools.base_bike_setup.entities.BikeSetup
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
 import ru.urent.qatools.base_bike_setup.entities.TechZone
-import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.testing_stand.ScreenTestStand
 import ru.urent.qatools.testing_stand.SilentLog
@@ -70,7 +69,7 @@ class TemplateScreenModelTest {
         val setup = BikeSetup(
             bikeNumber = ScreenTestStand.FOUND_BIKE_NUMBER,
             location = GeoPoint(latitude = 43.424838, longitude = 39.928128),
-            target = ChargeTarget.State(ChargeState.NORMAL),
+            target = ChargeTarget.NoTask,
             availability = AvailabilityTarget.Keep,
         )
         templateInteractor.addBike(templateId = templateId, setup = setup)

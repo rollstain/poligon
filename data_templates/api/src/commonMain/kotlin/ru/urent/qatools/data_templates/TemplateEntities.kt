@@ -1,12 +1,13 @@
 package ru.urent.qatools.data_templates
 
-import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.core_entities.GeoPoint
 
 enum class StoredAvailability { KEEP, AVAILABLE, DISABLED }
 
+enum class StoredTargetState { CRITICAL, BURNING, HIGH, NORMAL, NO_TASK }
+
 data class BikeSettingsEntity(
-    val targetState: ChargeState?,
+    val targetState: StoredTargetState?,
     val targetPercent: Double?,
     val availability: StoredAvailability,
     val disabledReasonName: String?,

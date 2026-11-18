@@ -5,12 +5,14 @@ import io.ktor.client.engine.HttpClientEngine
 import kotlinx.coroutines.flow.flowOf
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
+import ru.urent.qatools.base_bike_setup.domain.BatteryTaskInteractor
 import ru.urent.qatools.base_bike_setup.domain.BikeSetupInteractor
 import ru.urent.qatools.base_bike_setup.domain.LocationInteractor
 import ru.urent.qatools.base_bike_setup.domain.TemplateApplyRunner
 import ru.urent.qatools.base_bike_setup.domain.TemplateInteractor
 import ru.urent.qatools.base_bike_setup.domain.mappers.BikeMapper
 import ru.urent.qatools.base_bike_setup.domain.mappers.LocationMapper
+import ru.urent.qatools.base_bike_setup.domain.mappers.OpsTaskMapper
 import ru.urent.qatools.base_bike_setup.domain.mappers.TemplateMapper
 import ru.urent.qatools.core_database.DatabaseDriverProvider
 import ru.urent.qatools.core_network.HttpClientFactory
@@ -19,6 +21,7 @@ import ru.urent.qatools.core_network.StandRejectionListener
 import ru.urent.qatools.core_network.impl.HttpClientFactoryImpl
 import ru.urent.qatools.data_bikes.impl.DataBikesModule
 import ru.urent.qatools.data_location.impl.DataLocationModule
+import ru.urent.qatools.data_opstask.impl.DataOpsTaskModule
 import ru.urent.qatools.data_simulator.impl.DataSimulatorModule
 import ru.urent.qatools.data_templates.impl.DataTemplatesModule
 
@@ -39,6 +42,7 @@ class TestStandInteractors(createEngine: () -> HttpClientEngine) {
         modules(
             DataBikesModule().module,
             DataLocationModule().module,
+            DataOpsTaskModule().module,
             DataSimulatorModule().module,
             DataTemplatesModule().module,
             module {
@@ -55,11 +59,18 @@ class TestStandInteractors(createEngine: () -> HttpClientEngine) {
         )
     }.koin
 
+    private val batteryTaskInteractor = BatteryTaskInteractor(
+        opsTaskRepository = koin.get(),
+        locationRepository = koin.get(),
+        locationMapper = LocationMapper(),
+        opsTaskMapper = OpsTaskMapper(),
+    )
     val bikeSetupInteractor = BikeSetupInteractor(
         bikesRepository = koin.get(),
         simulatorRepository = koin.get(),
         omniEmulatorRepository = koin.get(),
         voiEmulatorRepository = koin.get(),
+        batteryTaskInteractor = batteryTaskInteractor,
         bikeMapper = BikeMapper(),
         log = SilentLog,
     )

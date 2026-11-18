@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.time.Clock
 import kotlin.time.Instant
+import ru.urent.qatools.base_bike_setup.entities.BatteryTask
 import ru.urent.qatools.base_bike_setup.entities.BikeContext
 import ru.urent.qatools.base_bike_setup.entities.DriverTask
 import ru.urent.qatools.uikit.theme.QaColors
@@ -33,6 +34,7 @@ private data class StandSummary(
     val connection: StandFact,
     val gps: StandFact,
     val charge: StandFact,
+    val batteryTask: StandFact,
     val access: StandFact,
     val driverTask: StandFact,
     val battery: StandFact,
@@ -43,7 +45,16 @@ private data class StandSummary(
 @Composable
 fun StandFacts(bike: BikeContext, modifier: Modifier = Modifier) {
     val summary = standSummary(bike, Clock.System.now())
-    val facts = listOf(summary.connection, summary.gps, summary.charge, summary.access, summary.driverTask, summary.battery, summary.coordinates)
+    val facts = listOf(
+        summary.connection,
+        summary.gps,
+        summary.charge,
+        summary.batteryTask,
+        summary.access,
+        summary.driverTask,
+        summary.battery,
+        summary.coordinates,
+    )
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceXl),
@@ -112,6 +123,12 @@ private fun standSummary(bike: BikeContext, now: Instant): StandSummary {
         percent != null -> StandFact("Заряд", formatPercent(percent), QaColors.disabledContent, null)
         else -> StandFact("Заряд", "неизвестен", QaColors.disabledContent, null)
     }
+    val batteryTask = status.batteryTask
+    val batteryTaskDotColor = when (batteryTask) {
+        BatteryTask.Absent -> TaskColors.noTask
+        is BatteryTask.Active -> taskPriorityColor(batteryTask.priority)
+        BatteryTask.Unknown -> QaColors.disabledContent
+    }
     val access = when (status.isDisabled) {
         true -> StandFact("Доступ", "Снят: ${status.disabledReason ?: "причина не указана"}", QaColors.warningText, null)
         false -> StandFact("Доступ", "В доступе", QaColors.positive, null)
@@ -128,6 +145,7 @@ private fun standSummary(bike: BikeContext, now: Instant): StandSummary {
         connection = connection,
         gps = gps,
         charge = charge,
+        batteryTask = StandFact("Задача АКБ", batteryTaskLabel(batteryTask), batteryTaskDotColor, null),
         access = access,
         driverTask = driverTask,
         battery = StandFact("АКБ", batteryCategoryLabel(status.batteryCategory), null, null),

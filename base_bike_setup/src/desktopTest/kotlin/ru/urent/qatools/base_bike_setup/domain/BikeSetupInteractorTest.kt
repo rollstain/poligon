@@ -13,6 +13,7 @@ import io.ktor.http.Parameters
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
@@ -30,32 +31,32 @@ import kotlinx.serialization.json.jsonPrimitive
 import ru.urent.qatools.base_bike_setup.entities.ApplyFailure
 import ru.urent.qatools.base_bike_setup.entities.ApplyStatus
 import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
+import ru.urent.qatools.base_bike_setup.entities.BatteryTask
 import ru.urent.qatools.base_bike_setup.entities.BikeLookup
 import ru.urent.qatools.base_bike_setup.entities.BikeSetup
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
-import ru.urent.qatools.base_bike_setup.entities.ChargeThresholds
 import ru.urent.qatools.base_bike_setup.entities.DisabledReason
 import ru.urent.qatools.base_bike_setup.entities.DriverTask
+import ru.urent.qatools.base_bike_setup.entities.PriorityThresholds
 import ru.urent.qatools.core_entities.BatteryCapacityCategory
-import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.core_entities.DriverTaskReason
 import ru.urent.qatools.core_entities.GeoPoint
+import ru.urent.qatools.core_entities.TaskPriority
 import ru.urent.qatools.testing_stand.TestStandInteractors
 
 class BikeSetupInteractorTest {
 
     @Test
-    fun lowTargetSendsLocationAndVoltageAndConfirmsLowState() = runTest {
+    fun burningTargetSendsLocationAndVoltageAndConfirmsBurningTask() = runTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario())
         val location = GeoPoint(43.42485, 39.92816)
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Keep, location)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(Burning, AvailabilityTarget.Keep, location)).toList()
 
         assertEquals(ApplyStatus.Resolving, statuses.first())
-        assertEquals(ApplyStatus.WaitingForTracker(12.5), statuses[1])
+        assertEquals(ApplyStatus.WaitingForTracker(BURNING_TARGET_PERCENT), statuses[1])
         val done = statuses.last()
         assertTrue(done is ApplyStatus.Done, "last status: $done")
-        assertEquals(ChargeState.LOW, done.state)
         assertTrue(done.isTargetReached)
         assertEquals(AvailabilityTarget.Keep, done.availability)
         val locationPost = stand.simulatorPosts.first { it["lat"] != null }
@@ -69,11 +70,45 @@ class BikeSetupInteractorTest {
     fun resultReportsSentPercentWhileStandStillShowsPreviousCharge() = runTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(stalePercent = STALE_PERCENT))
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Keep)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(Burning, AvailabilityTarget.Keep)).toList()
 
         val done = statuses.last()
         assertTrue(done is ApplyStatus.Done, "last status: $done")
-        assertEquals(LOW_TARGET_PERCENT, done.percent)
+        assertEquals(BURNING_TARGET_PERCENT, done.percent)
+    }
+
+    @Test
+    fun chargeConfirmedBeforeStandUpdatesTaskWaitsForTask() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(staleTaskPriority = "Burning"))
+
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(High, AvailabilityTarget.Keep)).toList()
+
+        val done = statuses.last()
+        assertTrue(done is ApplyStatus.Done, "last status: $done")
+        assertEquals(HIGH_TARGET_PERCENT, done.percent)
+        assertFalse(done.isTargetReached)
+    }
+
+    @Test
+    fun normalTargetOutsideConfiguredTechZoneIsNotSent() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario())
+
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(Normal, AvailabilityTarget.Keep, OUTSIDE_TECH_ZONES)).toList()
+
+        assertEquals(ApplyStatus.Failed(ApplyFailure.TargetUnreachableHere), statuses.last())
+        assertTrue(stand.simulatorPosts.isEmpty())
+    }
+
+    @Test
+    fun normalTargetInsideConfiguredTechZoneGoesBetweenRecommendedLevelAndZonePercent() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario())
+
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(Normal, AvailabilityTarget.Keep)).toList()
+
+        assertEquals(ApplyStatus.WaitingForTracker(NORMAL_TARGET_PERCENT), statuses[1])
+        val done = statuses.last()
+        assertTrue(done is ApplyStatus.Done, "last status: $done")
+        assertTrue(done.isTargetReached)
     }
 
     @Test
@@ -81,7 +116,7 @@ class BikeSetupInteractorTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(disabledReason = "Низкий заряд батареи"))
         val needsRepair = AvailabilityTarget.Disabled(reasonName = "NeedsRepair", reasonTitle = "Требует ремонта")
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.NORMAL), needsRepair)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.NoTask, needsRepair)).toList()
 
         val done = statuses.last()
         assertTrue(done is ApplyStatus.Done, "last status: $done")
@@ -99,7 +134,7 @@ class BikeSetupInteractorTest {
     fun availableTargetPutsBikeIntoAvailability() = runTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(disabledReason = "Требует ремонта"))
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.NORMAL), AvailabilityTarget.Available)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.NoTask, AvailabilityTarget.Available)).toList()
 
         assertTrue(statuses.last() is ApplyStatus.Done, "last status: ${statuses.last()}")
         val request = stand.availabilityRequests.single()
@@ -114,7 +149,7 @@ class BikeSetupInteractorTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
         val needsRepair = AvailabilityTarget.Disabled(reasonName = "NeedsRepair", reasonTitle = "Требует ремонта")
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.NORMAL), needsRepair)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.NoTask, needsRepair)).toList()
 
         val expected = ApplyFailure.AvailabilityIgnored(isDisabled = true, currentReason = "Низкий заряд батареи")
         assertEquals(ApplyStatus.Failed(expected), statuses.last())
@@ -125,7 +160,7 @@ class BikeSetupInteractorTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario())
         val missing = AvailabilityTarget.Disabled(reasonName = "NoSuchReason", reasonTitle = "Несуществующая причина")
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.NORMAL), missing)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.NoTask, missing)).toList()
 
         assertEquals(ApplyStatus.Failed(ApplyFailure.ReasonNotFound("Несуществующая причина")), statuses.last())
         assertTrue(stand.availabilityRequests.isEmpty())
@@ -135,7 +170,7 @@ class BikeSetupInteractorTest {
     fun failedAvailabilityChangeSaysChargeIsAlreadySet() = runTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(availabilityStatus = HttpStatusCode.InternalServerError))
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.NORMAL), AvailabilityTarget.Available)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.NoTask, AvailabilityTarget.Available)).toList()
 
         val expected = ApplyFailure.AvailabilityNotChanged(ApplyFailure.Unexpected(HttpStatusCode.InternalServerError.value))
         assertEquals(ApplyStatus.Failed(expected), statuses.last())
@@ -186,7 +221,40 @@ class BikeSetupInteractorTest {
 
         assertTrue(lookup is BikeLookup.Found, "lookup: $lookup")
         assertEquals(BatteryCapacityCategory.INCREASED, lookup.bike.status.batteryCategory)
-        assertEquals(ChargeThresholds(emptyPercent = 0.0, powerOffPercent = 6.0, disablePercent = 11.0, needToChangePercent = 15.0), lookup.bike.thresholds)
+        assertEquals(PriorityThresholds(criticalPercent = 4, burningPercent = 11, highPercent = 15), lookup.bike.taskRules.thresholds)
+        assertNull(lookup.bike.taskRules.zonePercentDivider)
+    }
+
+    @Test
+    fun lookupReadsTaskRulesOfStandAndBatteryTaskOfBike() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario())
+
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
+
+        assertTrue(lookup is BikeLookup.Found, "lookup: $lookup")
+        val rules = lookup.bike.taskRules
+        assertEquals(PriorityThresholds(criticalPercent = 4, burningPercent = 15, highPercent = 25), rules.thresholds)
+        assertEquals(listOf(TECH_ZONE_NAME to TECH_ZONE_PERCENT), rules.zoneLimits.map { it.name to it.zonePercent })
+        assertEquals(BatteryTask.Active(TaskPriority.CRITICAL), lookup.bike.status.batteryTask)
+    }
+
+    @Test
+    fun unreadablePlatformConfigFailsLookup() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(opsTaskConfigStatus = HttpStatusCode.Forbidden))
+
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
+
+        assertEquals(BikeLookup.Failed(ApplyFailure.Unexpected(HttpStatusCode.Forbidden.value)), lookup)
+    }
+
+    @Test
+    fun failingTaskRequestLeavesTaskUnknown() = runTest {
+        val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(opsTasksStatus = HttpStatusCode.InternalServerError))
+
+        val lookup = stand.interactor().lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER)
+
+        assertTrue(lookup is BikeLookup.Found, "lookup: $lookup")
+        assertEquals(BatteryTask.Unknown, lookup.bike.status.batteryTask)
     }
 
     @Test
@@ -232,15 +300,14 @@ class BikeSetupInteractorTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), StandScenario(trackerDriver = OMNI_DRIVER, trackerImei = OMNI_IMEI))
         val location = GeoPoint(43.42485, 39.92816)
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Keep, location)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(Burning, AvailabilityTarget.Keep, location)).toList()
 
-        assertEquals(ApplyStatus.WaitingForTracker(LOW_WHOLE_PERCENT), statuses[1])
+        assertEquals(ApplyStatus.WaitingForTracker(BURNING_WHOLE_PERCENT), statuses[1])
         val done = statuses.last()
         assertTrue(done is ApplyStatus.Done, "last status: $done")
-        assertEquals(ChargeState.LOW, done.state)
         assertTrue(done.isTargetReached)
         val body = Json.parseToJsonElement(stand.omniPosts.single()) as JsonObject
-        assertEquals(LOW_WHOLE_PERCENT.toInt().toString(), body.getValue("chargePercentage").jsonPrimitive.content)
+        assertEquals(BURNING_WHOLE_PERCENT.toInt().toString(), body.getValue("chargePercentage").jsonPrimitive.content)
         assertEquals("43.42485, 39.92816", body.getValue("forcedCoordinate").jsonPrimitive.content)
         assertTrue(stand.simulatorPosts.isEmpty())
     }
@@ -250,7 +317,7 @@ class BikeSetupInteractorTest {
         val scenario = StandScenario(trackerDriver = OMNI_DRIVER, trackerImei = OMNI_IMEI, emulatorChargeReportDelay = OMNI_OBSERVED_CHARGE_DELAY)
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Keep)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(Burning, AvailabilityTarget.Keep)).toList()
 
         val done = statuses.last()
         assertTrue(done is ApplyStatus.Done, "last status: $done")
@@ -261,7 +328,7 @@ class BikeSetupInteractorTest {
         val scenario = StandScenario(trackerDriver = OMNI_DRIVER, trackerImei = OMNI_IMEI, isTrackerEmulated = false)
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
 
-        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Keep)).toList()
+        val statuses = stand.interactor().apply(standBaseUrl = BASE_URL, setup = setup(Burning, AvailabilityTarget.Keep)).toList()
 
         assertEquals(ApplyStatus.Failed(ApplyFailure.TrackerNotEmulated(OMNI_IMEI)), statuses.last())
         assertTrue(stand.omniPosts.isEmpty())
@@ -274,17 +341,17 @@ class BikeSetupInteractorTest {
 
         val statuses = stand.interactor().apply(
             standBaseUrl = BASE_URL,
-            setup = setup(ChargeTarget.State(ChargeState.NEED_TO_CHANGE), AvailabilityTarget.Keep, location),
+            setup = setup(High, AvailabilityTarget.Keep, location),
         ).toList()
 
         val done = statuses.last()
         assertTrue(done is ApplyStatus.Done, "last status: $done")
-        assertEquals(ChargeState.NEED_TO_CHANGE, done.state)
+        assertTrue(done.isTargetReached)
         val original = Json.parseToJsonElement(VOI_DEVICE_JSON) as JsonObject
         val sent = Json.parseToJsonElement(stand.voiDevicePosts.single()) as JsonObject
         assertEquals(original.keys, sent.keys)
         assertEquals(original - "batteryPercent", sent - "batteryPercent")
-        assertEquals(NEED_TO_CHANGE_WHOLE_PERCENT.toString(), sent.getValue("batteryPercent").jsonPrimitive.content)
+        assertEquals(HIGH_WHOLE_PERCENT.toString(), sent.getValue("batteryPercent").jsonPrimitive.content)
         val coordinates = Json.parseToJsonElement(stand.voiCoordinatePosts.single()) as JsonObject
         assertEquals(location.latitude.toString(), coordinates.getValue("lat").jsonPrimitive.content)
         assertEquals(location.longitude.toString(), coordinates.getValue("lng").jsonPrimitive.content)
@@ -297,7 +364,7 @@ class BikeSetupInteractorTest {
 
         val statuses = stand.interactor().apply(
             standBaseUrl = BASE_URL,
-            setup = setup(ChargeTarget.State(ChargeState.NEED_TO_CHANGE), AvailabilityTarget.Keep),
+            setup = setup(High, AvailabilityTarget.Keep),
         ).toList()
 
         val done = statuses.last()
@@ -325,12 +392,12 @@ class BikeSetupInteractorTest {
         val interactor = stand.interactor()
         val bike = (interactor.lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER) as BikeLookup.Found).bike
         val readyForUse = AvailabilityTarget.Disabled(reasonName = READY_FOR_USE_TAG, reasonTitle = READY_FOR_USE_TITLE)
-        val waiting = ApplyStatus.Done(percent = 62.5, state = ChargeState.LOW, isTargetReached = false, availability = readyForUse)
+        val waiting = ApplyStatus.Done(percent = NO_TASK_TARGET_PERCENT, isTargetReached = false, availability = readyForUse)
 
-        val result = interactor.confirmRecalculatedCharge(setup(ChargeTarget.State(ChargeState.NORMAL), readyForUse), waiting, bike)
+        val result = interactor.confirmRecalculatedCharge(setup(ChargeTarget.NoTask, readyForUse), waiting, bike)
 
         assertTrue(bike.status.hasLowBatteryReason)
-        assertEquals(waiting.copy(state = ChargeState.NORMAL, isTargetReached = true), result)
+        assertEquals(waiting, result)
         val request = stand.availabilityRequests.single()
         assertEquals(DISABLE_REASON_PATH, request.path)
         assertEquals(READY_FOR_USE_REASON_ID, (Json.parseToJsonElement(request.body) as JsonObject).getValue("reasonId").jsonPrimitive.content)
@@ -347,16 +414,16 @@ class BikeSetupInteractorTest {
         val interactor = stand.interactor()
         val bike = (interactor.lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER) as BikeLookup.Found).bike
         val readyForUse = AvailabilityTarget.Disabled(reasonName = READY_FOR_USE_TAG, reasonTitle = READY_FOR_USE_TITLE)
-        val waiting = ApplyStatus.Done(percent = 62.5, state = ChargeState.LOW, isTargetReached = false, availability = readyForUse)
+        val waiting = ApplyStatus.Done(percent = NO_TASK_TARGET_PERCENT, isTargetReached = false, availability = readyForUse)
 
-        val result = interactor.confirmRecalculatedCharge(setup(ChargeTarget.State(ChargeState.NORMAL), readyForUse), waiting, bike)
+        val result = interactor.confirmRecalculatedCharge(setup(ChargeTarget.NoTask, readyForUse), waiting, bike)
 
-        assertEquals(waiting.copy(state = ChargeState.NORMAL, isTargetReached = true), result)
+        assertEquals(waiting.copy(isTargetReached = true), result)
         assertTrue(stand.availabilityRequests.isEmpty())
     }
 
     @Test
-    fun lowTargetKeepsLowBatteryReasonThatStandSetByItsRules() = runTest {
+    fun burningTargetKeepsLowBatteryReasonThatStandSetByItsRules() = runTest {
         val scenario = StandScenario(
             disabledReason = LOW_BATTERY_TITLE,
             disabledReasonTags = listOf(LOW_BATTERY_TAG),
@@ -365,24 +432,28 @@ class BikeSetupInteractorTest {
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
         val interactor = stand.interactor()
         val bike = (interactor.lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER) as BikeLookup.Found).bike
-        val waiting = ApplyStatus.Done(percent = 12.5, state = ChargeState.NORMAL, isTargetReached = false, availability = AvailabilityTarget.Available)
+        val waiting = ApplyStatus.Done(percent = BURNING_TARGET_PERCENT, isTargetReached = false, availability = AvailabilityTarget.Available)
 
-        val result = interactor.confirmRecalculatedCharge(setup(ChargeTarget.State(ChargeState.LOW), AvailabilityTarget.Available), waiting, bike)
+        val result = interactor.confirmRecalculatedCharge(setup(Burning, AvailabilityTarget.Available), waiting, bike)
 
-        assertEquals(waiting.copy(state = ChargeState.LOW, isTargetReached = true), result)
+        assertEquals(waiting.copy(isTargetReached = true), result)
         assertTrue(stand.availabilityRequests.isEmpty())
     }
 
     @Test
     fun chargeNotYetRecalculatedKeepsWaitingAndLeavesAvailability() = runTest {
-        val scenario = StandScenario(disabledReason = READY_FOR_USE_TITLE, disabledReasonTags = listOf(READY_FOR_USE_TAG, LOW_BATTERY_TAG))
+        val scenario = StandScenario(
+            disabledReason = READY_FOR_USE_TITLE,
+            disabledReasonTags = listOf(READY_FOR_USE_TAG, LOW_BATTERY_TAG),
+            initialMillivolts = LOW_MILLIVOLTS,
+        )
         val stand = FakeStand(StandardTestDispatcher(testScheduler), scenario)
         val interactor = stand.interactor()
         val bike = (interactor.lookup(standBaseUrl = BASE_URL, bikeNumber = BIKE_NUMBER) as BikeLookup.Found).bike
         val readyForUse = AvailabilityTarget.Disabled(reasonName = READY_FOR_USE_TAG, reasonTitle = READY_FOR_USE_TITLE)
-        val waiting = ApplyStatus.Done(percent = 62.5, state = ChargeState.LOW, isTargetReached = false, availability = readyForUse)
+        val waiting = ApplyStatus.Done(percent = NO_TASK_TARGET_PERCENT, isTargetReached = false, availability = readyForUse)
 
-        val result = interactor.confirmRecalculatedCharge(setup(ChargeTarget.State(ChargeState.NORMAL), readyForUse), waiting, bike)
+        val result = interactor.confirmRecalculatedCharge(setup(ChargeTarget.NoTask, readyForUse), waiting, bike)
 
         assertEquals(waiting, result)
         assertTrue(stand.availabilityRequests.isEmpty())
@@ -422,6 +493,9 @@ class BikeSetupInteractorTest {
         val initialMillivolts: Int = INITIAL_MILLIVOLTS,
         val stalePercent: Double? = null,
         val emulatorChargeReportDelay: Duration = Duration.ZERO,
+        val staleTaskPriority: String? = null,
+        val opsTaskConfigStatus: HttpStatusCode = HttpStatusCode.OK,
+        val opsTasksStatus: HttpStatusCode = HttpStatusCode.OK,
     )
 
     private data class AvailabilityRequest(val path: String, val vendors: String?, val body: String)
@@ -495,6 +569,14 @@ class BikeSetupInteractorTest {
                             respondError(scenario.driverTaskStatus)
                         path == "/bikes/api/disabledreasons/allowed" ->
                             respond(fixture("/disabled-reasons.json"), HttpStatusCode.OK, jsonHeaders)
+                        path == "/opstask/api/config/all" && scenario.opsTaskConfigStatus != HttpStatusCode.OK ->
+                            respondError(scenario.opsTaskConfigStatus)
+                        path == "/opstask/api/config/all" -> respond(fixture("/opstask-config.json"), HttpStatusCode.OK, jsonHeaders)
+                        path == "/gateway-ocelot/api/v1/opstask-api/TechZoneSettings" -> respond(TECH_ZONE_SETTINGS_JSON, HttpStatusCode.OK, jsonHeaders)
+                        path == "/gateway-ocelot/api/v1/location-api/Zones/techs/byAreaId" -> respond(TECH_ZONES_JSON, HttpStatusCode.OK, jsonHeaders)
+                        path == "/gateway-ocelot/api/v1/opstask-api/Opstasks" && scenario.opsTasksStatus != HttpStatusCode.OK ->
+                            respondError(scenario.opsTasksStatus)
+                        path == "/gateway-ocelot/api/v1/opstask-api/Opstasks" -> respond(opsTasksJson(), HttpStatusCode.OK, jsonHeaders)
                         path == DISABLE_REASON_PATH || path == ENABLE_PATH -> {
                             val body = request.body.toByteArray().decodeToString()
                             availabilityRequests.add(AvailabilityRequest(path, request.headers[SELECTED_VENDORS_HEADER], body))
@@ -530,9 +612,27 @@ class BikeSetupInteractorTest {
             return if (sinceSentMs >= scenario.emulatorChargeReportDelay.inWholeMilliseconds) emulatorPercent else null
         }
 
-        private fun bikeJson(): String {
+        private fun standPercent(): Double {
             val voltagePercent = ((lastMillivolts / 1000.0 - MIN_VOLTS) / (MAX_VOLTS - MIN_VOLTS) * 100).coerceIn(0.0, 100.0)
-            val percent = scenario.stalePercent ?: reportedPercent() ?: voltagePercent
+            return scenario.stalePercent ?: reportedPercent() ?: voltagePercent
+        }
+
+        private fun opsTasksJson(): String {
+            val percent = standPercent()
+            val hasLowBatteryReason = LOW_BATTERY_TAG in disabledReasonTags
+            val priority = when {
+                scenario.staleTaskPriority != null -> scenario.staleTaskPriority
+                percent > TECH_ZONE_PERCENT -> null
+                percent <= 4.0 -> "Critical"
+                percent <= 15.0 || hasLowBatteryReason -> "Burning"
+                percent <= 25.0 -> "High"
+                else -> "Normal"
+            }
+            return if (priority == null) """{"entries":[]}""" else """{"entries":[{"priority":"$priority"}]}"""
+        }
+
+        private fun bikeJson(): String {
+            val percent = standPercent()
             val status = when {
                 percent <= 0.0 -> "Empty"
                 percent <= 10.0 -> "ChargeIsExtremelyLow"
@@ -610,8 +710,30 @@ class BikeSetupInteractorTest {
         const val VOI_DEVICE_JSON = """{"imei":"867000000000005","iccid":"8900000","lat":43.44815,"lng":39.907837,"locked":true,"batteryPercent":85,"signal":32,"lockSendIntervalMSec":60000,"unlockSendIntervalMSec":3000,"lockDelay":5,"isConnected":true,"isUpdateCoordinate":false}"""
         val OMNI_OBSERVED_CHARGE_DELAY = 107.seconds
         val VOI_OBSERVED_CHARGE_DELAY = 101.seconds
-        const val LOW_WHOLE_PERCENT = 13.0
-        const val NEED_TO_CHANGE_WHOLE_PERCENT = 20
+        val Burning = ChargeTarget.Task(TaskPriority.BURNING)
+        val High = ChargeTarget.Task(TaskPriority.HIGH)
+        val Normal = ChargeTarget.Task(TaskPriority.NORMAL)
+        const val BURNING_TARGET_PERCENT = 9.5
+        const val HIGH_TARGET_PERCENT = 20.0
+        const val NORMAL_TARGET_PERCENT = 31.5
+        const val NO_TASK_TARGET_PERCENT = 69.0
+        const val BURNING_WHOLE_PERCENT = 10.0
+        const val HIGH_WHOLE_PERCENT = 20
+        const val TECH_ZONE_NAME = "Адлер 4.1"
+        const val TECH_ZONE_PERCENT = 38
+        val OUTSIDE_TECH_ZONES = GeoPoint(44.0, 39.0)
+        const val TECH_ZONE_SETTINGS_JSON = """
+            {"totalPages": 1, "entries": [
+              {"zoneId": "zone-adler-4-1", "areaId": "5f9b2468f0e5ce0001b638e9", "vehicleBatteryPercent": 38, "isEnabled": true}
+            ]}
+        """
+        const val TECH_ZONES_JSON = """
+            {"entries": [
+              {"id": "zone-adler-4-1", "name": "Адлер 4.1", "areaId": "5f9b2468f0e5ce0001b638e9", "disabled": false,
+               "center": {"lat": 43.2, "lng": 39.45},
+               "coordinates": [{"lat": 42.9, "lng": 38.9}, {"lat": 42.9, "lng": 40.0}, {"lat": 43.5, "lng": 40.0}, {"lat": 43.5, "lng": 38.9}]}
+            ]}
+        """
         const val SIMULATOR_STATUS_PATH = "/simulator-signal/api/status"
         const val SIMULATOR_STATUS_JSON = """{"ID":4071,"Lat":"43.42485","Lon":"39.92816","I1":false,"Startid":4000,"Countid":110,"Ping":60}"""
         const val TWO_CATEGORY_MODEL_JSON = """
@@ -629,7 +751,6 @@ class BikeSetupInteractorTest {
         const val DISABLED_REASONS_ON_STAND = 30
         const val NORMAL_MILLIVOLTS = 40000
         const val STALE_PERCENT = 62.5
-        const val LOW_TARGET_PERCENT = 12.5
         const val LOW_MILLIVOLTS = 34500
         const val LOW_BATTERY_TITLE = "Низкий заряд батареи"
         const val READY_FOR_USE_TAG = "ReadyForUse"

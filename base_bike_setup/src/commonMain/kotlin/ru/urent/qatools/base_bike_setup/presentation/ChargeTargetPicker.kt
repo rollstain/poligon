@@ -30,26 +30,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ru.urent.qatools.base_bike_setup.domain.ChargeCalculator
+import ru.urent.qatools.base_bike_setup.domain.TaskPriorityCalculator
+import ru.urent.qatools.base_bike_setup.entities.ChargeBand
+import ru.urent.qatools.base_bike_setup.entities.ChargeBands
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
-import ru.urent.qatools.base_bike_setup.entities.ChargeThresholds
-import ru.urent.qatools.core_entities.ChargeState
+import ru.urent.qatools.base_bike_setup.entities.TaskRules
+import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.uikit.components.QaTextField
 import ru.urent.qatools.uikit.theme.QaColors
 import ru.urent.qatools.uikit.theme.QaDimens
 
 private const val FULL_PERCENT = 100.0
+private const val TARGET_BUTTON_LABEL_SIZE_SP = 11
 private val ExactFieldWidth = 140.dp
 private val SelectedBorderWidth = 2.dp
 private val SwatchSize = 10.dp
 private val SwatchShape = RoundedCornerShape(3.dp)
-private val StateButtonLabelSize = 11.sp
+private val TargetButtonLabelSize = TARGET_BUTTON_LABEL_SIZE_SP.sp
 private val ScaleBarHeight = 12.dp
 private val CompactScaleBarHeight = 6.dp
 private val ScaleBarShape = RoundedCornerShape(6.dp)
@@ -65,70 +67,61 @@ private val ScaleSegmentGap = 2.dp
 fun ChargeTargetPicker(
     target: ChargeTarget,
     onTargetChange: (ChargeTarget) -> Unit,
-    thresholds: ChargeThresholds?,
+    taskRules: TaskRules?,
+    location: GeoPoint?,
     currentPercent: Double?,
-    isEmptyReachable: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var exactText by remember { mutableStateOf("") }
     LaunchedEffect(target) {
         if (target is ChargeTarget.Percent && parsePercent(exactText) != target.percent) exactText = formatNumber(target.percent)
     }
+    val bands = if (taskRules == null || location == null) null else TaskPriorityCalculator.bandsAt(taskRules, location)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(QaDimens.spaceM)) {
-        if (thresholds == null) {
+        if (bands == null) {
             Text(
-                "Шкала порогов появится, когда найдём байк — пороги у каждой модели свои",
+                "Шкала появится, когда найдём байк и место — интервалы зависят от модели, АКБ и техзоны",
                 style = MaterialTheme.typography.bodyMedium,
                 color = QaColors.textSecondary,
             )
         } else {
-            ChargeScale(
-                percent = ChargeCalculator.targetPercent(target, thresholds),
-                currentPercent = currentPercent,
-                thresholds = thresholds,
-            )
+            ChargeScale(target = target, bands = bands, currentPercent = currentPercent)
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceXs)) {
-            for (state in ChargeState.entries) {
-                val isSelected = target is ChargeTarget.State && target.state == state
-                val isEnabled = state != ChargeState.EMPTY || isEmptyReachable
-                val buttonLabel = when (state) {
-                    ChargeState.EMPTY -> "Пустая"
-                    ChargeState.EXTREMELY_LOW -> "Сверхниз."
-                    ChargeState.LOW -> "Низкий"
-                    ChargeState.NEED_TO_CHANGE -> "Замена"
-                    ChargeState.NORMAL -> "Норма"
-                }
+            for (taskTarget in TaskPriorityCalculator.TaskTargets) {
+                val band = bands?.bands?.firstOrNull { it.target == taskTarget }
+                val isEnabled = bands == null || band != null
+                val isSelected = target == taskTarget
                 val labelColor = when {
                     !isEnabled -> QaColors.disabledContent
                     isSelected -> QaColors.brandText
                     else -> QaColors.textPrimary
                 }
                 Surface(
-                    onClick = { onTargetChange(ChargeTarget.State(state)) },
+                    onClick = { onTargetChange(taskTarget) },
                     enabled = isEnabled,
                     shape = RoundedCornerShape(QaDimens.radiusField),
                     color = if (isSelected) QaColors.brandSelection else QaColors.surface,
                     border = if (isSelected) BorderStroke(SelectedBorderWidth, QaColors.brand) else BorderStroke(QaDimens.dividerThickness, QaColors.stroke),
-                    modifier = Modifier.weight(1f).semantics { contentDescription = chargeStateLabel(state) },
+                    modifier = Modifier.weight(1f).semantics { contentDescription = chargeTargetLabel(taskTarget) },
                 ) {
                     Column(
                         modifier = Modifier.padding(vertical = QaDimens.spaceS),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(QaDimens.spaceXs),
                     ) {
-                        Box(Modifier.size(SwatchSize).background(if (isEnabled) chargeStateColor(state) else QaColors.disabledContent, SwatchShape))
+                        Box(Modifier.size(SwatchSize).background(if (isEnabled) chargeTargetColor(taskTarget) else QaColors.disabledContent, SwatchShape))
                         Text(
-                            buttonLabel,
-                            fontSize = StateButtonLabelSize,
+                            chargeTargetShortLabel(taskTarget),
+                            fontSize = TargetButtonLabelSize,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                             color = labelColor,
                             maxLines = 1,
                         )
-                        if (thresholds != null) {
+                        if (bands != null) {
                             Text(
-                                thresholdRangeText(state, thresholds),
-                                fontSize = StateButtonLabelSize,
+                                if (band == null) "нет" else bandRangeText(band),
+                                fontSize = TargetButtonLabelSize,
                                 color = if (isEnabled) QaColors.textSecondary else QaColors.disabledContent,
                                 maxLines = 1,
                             )
@@ -137,10 +130,9 @@ fun ChargeTargetPicker(
                 }
             }
         }
-        if (!isEmptyReachable) {
+        if (bands != null && taskRules != null) {
             Text(
-                "«Пустая» недоступна: стенд считает байк этой модели пустым только при заряде ниже 0%, " +
-                    "а эмулятор трекера меньше 0% не отправляет",
+                taskZoneText(bands.zone, isZonePercentDivided = taskRules.zonePercentDivider != null),
                 style = MaterialTheme.typography.bodySmall,
                 color = QaColors.textSecondary,
             )
@@ -177,23 +169,33 @@ fun ChargeTargetPicker(
 }
 
 @Composable
-private fun ChargeScale(percent: Double, currentPercent: Double?, thresholds: ChargeThresholds) {
-    val segments = chargeScaleSegments(thresholds)
-    val beforeMarker = percent.coerceIn(0.0, FULL_PERCENT).toFloat()
-    val afterMarker = (FULL_PERCENT - percent).coerceIn(0.0, FULL_PERCENT).toFloat()
+private fun ChargeScale(target: ChargeTarget, bands: ChargeBands, currentPercent: Double?) {
+    val segments = scaleSegments(bands)
+    val percent = TaskPriorityCalculator.targetPercent(target, bands)
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(QaDimens.spaceXs)) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            if (beforeMarker > 0f) Spacer(Modifier.weight(beforeMarker))
-            Text("станет ${formatPercent(percent)}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-            if (afterMarker > 0f) Spacer(Modifier.weight(afterMarker))
+        if (percent == null) {
+            Text(
+                "«${chargeTargetLabel(target)}» в этом месте не получить",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = QaColors.negative,
+            )
+        } else {
+            val beforeMarker = percent.coerceIn(0.0, FULL_PERCENT).toFloat()
+            val afterMarker = (FULL_PERCENT - percent).coerceIn(0.0, FULL_PERCENT).toFloat()
+            Row(modifier = Modifier.fillMaxWidth()) {
+                if (beforeMarker > 0f) Spacer(Modifier.weight(beforeMarker))
+                Text("станет ${formatPercent(percent)}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                if (afterMarker > 0f) Spacer(Modifier.weight(afterMarker))
+            }
         }
         Box(modifier = Modifier.fillMaxWidth().height(ScaleTrackHeight), contentAlignment = Alignment.CenterStart) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(ScaleBarHeight).clip(ScaleBarShape),
                 horizontalArrangement = Arrangement.spacedBy(ScaleSegmentGap),
             ) {
-                for ((color, from, to) in segments) {
-                    Box(Modifier.weight((to - from).toFloat()).fillMaxHeight().background(color))
+                for (segment in segments) {
+                    Box(Modifier.weight((segment.toPercent - segment.fromPercent).toFloat()).fillMaxHeight().background(chargeTargetColor(segment.target)))
                 }
             }
             if (currentPercent != null) {
@@ -211,18 +213,21 @@ private fun ChargeScale(percent: Double, currentPercent: Double?, thresholds: Ch
                     if (afterCurrent > 0f) Spacer(Modifier.weight(afterCurrent))
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (beforeMarker > 0f) Spacer(Modifier.weight(beforeMarker))
-                Box(Modifier.width(ScaleMarkerWidth).height(ScaleTrackHeight).background(QaColors.textPrimary, ScaleBarShape))
-                if (afterMarker > 0f) Spacer(Modifier.weight(afterMarker))
+            if (percent != null) {
+                val beforeMarker = percent.coerceIn(0.0, FULL_PERCENT).toFloat()
+                val afterMarker = (FULL_PERCENT - percent).coerceIn(0.0, FULL_PERCENT).toFloat()
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (beforeMarker > 0f) Spacer(Modifier.weight(beforeMarker))
+                    Box(Modifier.width(ScaleMarkerWidth).height(ScaleTrackHeight).background(QaColors.textPrimary, ScaleBarShape))
+                    if (afterMarker > 0f) Spacer(Modifier.weight(afterMarker))
+                }
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ScaleSegmentGap)) {
             for ((index, segment) in segments.withIndex()) {
-                val (_, from, to) = segment
-                Row(modifier = Modifier.weight((to - from).toFloat())) {
+                Row(modifier = Modifier.weight((segment.toPercent - segment.fromPercent).toFloat())) {
                     Text(
-                        "${formatNumber(from)}%",
+                        "${formatNumber(segment.fromPercent)}%",
                         style = MaterialTheme.typography.bodySmall,
                         color = QaColors.textSecondary,
                         maxLines = 1,
@@ -250,13 +255,13 @@ private fun ChargeScale(percent: Double, currentPercent: Double?, thresholds: Ch
 }
 
 @Composable
-fun ChargeScaleBar(percent: Double, thresholds: ChargeThresholds, modifier: Modifier = Modifier) {
+fun ChargeScaleBar(percent: Double, bands: ChargeBands, modifier: Modifier = Modifier) {
     val beforeMarker = percent.coerceIn(0.0, FULL_PERCENT).toFloat()
     val afterMarker = (FULL_PERCENT - percent).coerceIn(0.0, FULL_PERCENT).toFloat()
     Box(modifier = modifier.height(ScaleMarkerHeight), contentAlignment = Alignment.CenterStart) {
         Row(modifier = Modifier.fillMaxWidth().height(CompactScaleBarHeight).clip(ScaleBarShape)) {
-            for ((color, from, to) in chargeScaleSegments(thresholds)) {
-                Box(Modifier.weight((to - from).toFloat()).fillMaxHeight().background(color))
+            for (segment in scaleSegments(bands)) {
+                Box(Modifier.weight((segment.toPercent - segment.fromPercent).toFloat()).fillMaxHeight().background(chargeTargetColor(segment.target)))
             }
         }
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -267,9 +272,4 @@ fun ChargeScaleBar(percent: Double, thresholds: ChargeThresholds, modifier: Modi
     }
 }
 
-private fun chargeScaleSegments(thresholds: ChargeThresholds): List<Triple<Color, Double, Double>> = listOf(
-    Triple(ChargeColors.extremelyLow, thresholds.emptyPercent, thresholds.powerOffPercent),
-    Triple(ChargeColors.low, thresholds.powerOffPercent, thresholds.disablePercent),
-    Triple(ChargeColors.needToChange, thresholds.disablePercent, thresholds.needToChangePercent),
-    Triple(ChargeColors.normal, thresholds.needToChangePercent, FULL_PERCENT),
-).filter { (_, from, to) -> to > from }
+private fun scaleSegments(bands: ChargeBands): List<ChargeBand> = bands.bands.filter { it.toPercent > it.fromPercent }

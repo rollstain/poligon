@@ -40,6 +40,7 @@ kotlin {
                 implementation(project(":core_settings:impl"))
                 implementation(project(":data_bikes:impl"))
                 implementation(project(":data_location:impl"))
+                implementation(project(":data_opstask:impl"))
                 implementation(project(":data_qr_code:impl"))
                 implementation(project(":data_releases:impl"))
                 implementation(project(":data_simulator:impl"))

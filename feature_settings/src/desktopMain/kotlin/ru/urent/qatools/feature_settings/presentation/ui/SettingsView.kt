@@ -122,7 +122,6 @@ private fun AppGroups(modifier: Modifier, state: SettingsState, onEvent: (Settin
                 ) {
                     ChargeField(
                         target = defaults.target,
-                        thresholds = null,
                         onTargetChange = { target -> onEvent(SettingsEvent.OnDefaultTargetChanged(target)) },
                         label = "Заряд",
                         modifier = Modifier.weight(1f),

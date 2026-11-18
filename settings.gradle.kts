@@ -42,6 +42,8 @@ include(":data_qr_code:api")
 include(":data_qr_code:impl")
 include(":data_releases:api")
 include(":data_releases:impl")
+include(":data_opstask:api")
+include(":data_opstask:impl")
 
 include(":base_stand")
 include(":base_bike_setup")

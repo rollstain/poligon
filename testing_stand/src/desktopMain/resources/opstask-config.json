@@ -1,0 +1,62 @@
+{
+    "entries": [
+        {
+            "name": "IncreasedBattery:DividerForHighPriority",
+            "data": "",
+            "defaultData": "1.4",
+            "description": "(double) Коэфицент расчёта приоритета задач High для увеличенных батарей",
+            "lastChanged": null
+        },
+        {
+            "name": "IncreasedBattery:DividerForNormalPriority",
+            "data": "1.1",
+            "defaultData": "1.4",
+            "description": "(double) Коэфицент расчёта приоритета задач Normal для увеличенных батарей",
+            "lastChanged": null
+        },
+        {
+            "name": "IncreasedBattery:IsEnabled",
+            "data": "",
+            "defaultData": "False",
+            "description": "(bool) Включение/отключение функционала увеличенных батарей",
+            "lastChanged": null
+        },
+        {
+            "name": "OpsTaskPriority:ChangeBatteryBurningPriorityPercent",
+            "data": "10",
+            "defaultData": "5",
+            "description": "(int) Процент заряда для установки приоритета задачи Burning",
+            "lastChanged": null
+        },
+        {
+            "name": "OpsTaskPriority:ChangeBatteryCriticalPriorityPercent",
+            "data": "4",
+            "defaultData": "0",
+            "description": "(int) Процент заряда для установки приоритета задачи Critical",
+            "lastChanged": null
+        },
+        {
+            "name": "OpsTaskPriority:ChangeBatteryHighPriorityPercent",
+            "data": "30",
+            "defaultData": "27",
+            "description": "(int) Процент заряда для установки приоритета задачи High",
+            "lastChanged": null
+        },
+        {
+            "name": "OpsTasks:PriorityCalculatorVersion",
+            "data": "2",
+            "defaultData": "1",
+            "description": "(int) Версия калькулятора приоритета задач",
+            "lastChanged": null
+        },
+        {
+            "name": "OpsTasks:TechZoneSettings:DefaultCreationBatteryPercent",
+            "data": "",
+            "defaultData": "45",
+            "description": "(int) Конфигурация тех. зон с типом “По умолчанию“ для создания задач на замену АКБ",
+            "lastChanged": null
+        }
+    ],
+    "errors": [],
+    "succeeded": true
+}

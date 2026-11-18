@@ -30,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import ru.urent.qatools.base_bike_setup.domain.ChargeCalculator
 import ru.urent.qatools.base_bike_setup.domain.PlacementCalculator
 import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
 import ru.urent.qatools.base_bike_setup.entities.BikeLookup
@@ -41,8 +40,8 @@ import ru.urent.qatools.base_bike_setup.presentation.StatusLineView
 import ru.urent.qatools.base_bike_setup.presentation.applyStatusLines
 import ru.urent.qatools.base_bike_setup.presentation.chargeTargetColor
 import ru.urent.qatools.base_bike_setup.presentation.driverTaskColor
-import ru.urent.qatools.base_bike_setup.presentation.formatNumber
 import ru.urent.qatools.base_bike_setup.presentation.lookupLine
+import ru.urent.qatools.base_bike_setup.presentation.lowBatteryReasonWarning
 import ru.urent.qatools.base_bike_setup.presentation.placementLine
 import ru.urent.qatools.base_map.BikeMap
 import ru.urent.qatools.base_map.BikeMapController
@@ -161,10 +160,14 @@ private fun TargetColumn(state: QuickSetupState, found: BikeLookup.Found?, onEve
                     ChargeTargetPicker(
                         target = state.target,
                         onTargetChange = { target -> onEvent(QuickSetupEvent.OnTargetChanged(target)) },
-                        thresholds = found?.bike?.thresholds,
+                        taskRules = found?.bike?.taskRules,
+                        location = state.location,
                         currentPercent = found?.bike?.chargePercent,
-                        isEmptyReachable = found == null || ChargeCalculator.isEmptyReachable(found.bike.emulator, found.bike.thresholds),
                     )
+                    val lowBatteryWarning = lowBatteryReasonWarning(target = state.target, availability = state.availability, bike = found?.bike)
+                    if (lowBatteryWarning != null) {
+                        Text(lowBatteryWarning, style = MaterialTheme.typography.bodySmall, color = QaColors.warningText)
+                    }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
                     AvailabilityField(
@@ -174,8 +177,8 @@ private fun TargetColumn(state: QuickSetupState, found: BikeLookup.Found?, onEve
                         label = "Доступ после применения",
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    val thresholds = found?.bike?.thresholds
-                    val disableThresholdText = if (thresholds == null) "" else " (${formatNumber(thresholds.disablePercent)}% у ${found.bike.modelName})"
+                    val thresholds = found?.bike?.taskRules?.thresholds
+                    val disableThresholdText = if (thresholds == null) "" else " (${thresholds.burningPercent}% у ${found.bike.modelName})"
                     Text(
                         text = if (state.availability == AvailabilityTarget.Available) {
                             "Меняется, как только трекер подтвердит заряд. Если заряд ниже порога снятия$disableThresholdText, " +
@@ -208,7 +211,7 @@ private fun TargetColumn(state: QuickSetupState, found: BikeLookup.Found?, onEve
             }
             HorizontalDivider(thickness = QaDimens.dividerThickness, color = QaColors.stroke)
             Column(modifier = Modifier.padding(QaDimens.spaceL), verticalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
-                for (line in applyStatusLines(state.status)) StatusLineView(line)
+                for (line in applyStatusLines(state.status, state.target)) StatusLineView(line)
                 val message = state.message
                 if (message != null) {
                     Text(message, color = QaColors.positiveText)

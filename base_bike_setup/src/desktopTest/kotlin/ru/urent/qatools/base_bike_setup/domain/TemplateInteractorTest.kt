@@ -16,7 +16,7 @@ import ru.urent.qatools.base_bike_setup.entities.BikeSetup
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
 import ru.urent.qatools.base_bike_setup.entities.TemplateBike
 import ru.urent.qatools.core_database.DatabaseDriverProvider
-import ru.urent.qatools.core_entities.ChargeState
+import ru.urent.qatools.core_entities.TaskPriority
 import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.data_templates.impl.DataTemplatesModule
 import ru.urent.qatools.testing_stand.InMemoryDatabaseDriverProvider
@@ -34,7 +34,7 @@ class TemplateInteractorTest {
             setup = BikeSetup(
                 bikeNumber = BIKE_NUMBER,
                 location = GeoPoint(43.42, 39.93),
-                target = ChargeTarget.State(ChargeState.LOW),
+                target = ChargeTarget.Task(TaskPriority.BURNING),
                 availability = needsRepair,
             ),
         )
@@ -61,7 +61,7 @@ class TemplateInteractorTest {
     @Test
     fun removedBikeLosesItsApplyResult() = runTest {
         val bike = addBike()
-        val done = ApplyStatus.Done(percent = 12.5, state = ChargeState.LOW, isTargetReached = true, availability = AvailabilityTarget.Keep)
+        val done = ApplyStatus.Done(percent = 12.5, isTargetReached = true, availability = AvailabilityTarget.Keep)
         interactor.saveApplyResult(templateBikeId = bike.id, result = BikeApplyResult(appliedSetup = bike.setup, status = done, appliedAt = AppliedAt))
 
         interactor.deleteBike(bike.id)
@@ -76,7 +76,7 @@ class TemplateInteractorTest {
             setup = BikeSetup(
                 bikeNumber = BIKE_NUMBER,
                 location = GeoPoint(43.42, 39.93),
-                target = ChargeTarget.State(ChargeState.LOW),
+                target = ChargeTarget.Task(TaskPriority.BURNING),
                 availability = AvailabilityTarget.Disabled(reasonName = "NeedsRepair", reasonTitle = "Требует ремонта"),
             ),
         )

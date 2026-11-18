@@ -25,7 +25,6 @@ import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
 import ru.urent.qatools.base_bike_setup.entities.BikeApplyResult
 import ru.urent.qatools.base_bike_setup.entities.BikeSetup
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
-import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.feature_templates.presentation.editor.mvi.TemplateScreenModel
 import ru.urent.qatools.navigation.LocalNavigator
@@ -77,7 +76,7 @@ class TemplateScreenTest {
         val stand = ScreenTestStand()
         val templateId = createTemplate(stand)
         val bike = checkNotNull(stand.interactors.templateInteractor.getTemplate(templateId).first()).bikes.first()
-        val applied = ApplyStatus.Done(percent = NORMAL_PERCENT, state = ChargeState.NORMAL, isTargetReached = true, availability = AvailabilityTarget.Keep)
+        val applied = ApplyStatus.Done(percent = NORMAL_PERCENT, isTargetReached = true, availability = AvailabilityTarget.Keep)
         val result = BikeApplyResult(appliedSetup = bike.setup, status = applied, appliedAt = Clock.System.now())
         stand.interactors.templateInteractor.saveApplyResult(templateBikeId = bike.id, result = result)
         showTemplate(this, stand, templateId)
@@ -159,7 +158,7 @@ class TemplateScreenTest {
             val setup = BikeSetup(
                 bikeNumber = bikeNumber,
                 location = BikeLocation,
-                target = ChargeTarget.State(ChargeState.NORMAL),
+                target = ChargeTarget.NoTask,
                 availability = AvailabilityTarget.Keep,
             )
             stand.interactors.templateInteractor.addBike(templateId = templateId, setup = setup)

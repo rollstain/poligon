@@ -6,9 +6,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.data_templates.LastCityEntity
 import ru.urent.qatools.data_templates.StoredAvailability
+import ru.urent.qatools.data_templates.StoredTargetState
 import ru.urent.qatools.data_templates.db.BikeSetupDatabase
 
 class BikeSetupDatabaseMigrationTest {
@@ -33,15 +33,60 @@ class BikeSetupDatabaseMigrationTest {
         cities.save(standBaseUrl = STAND, city = AdlerCity)
 
         assertEquals(StoredAvailability.KEEP, settings.availability)
-        assertEquals(ChargeState.LOW, settings.targetState)
+        assertEquals(StoredTargetState.BURNING, settings.targetState)
         assertNull(settings.targetPercent)
         assertEquals(AdlerCity, cities.getLastCity(STAND))
+    }
+
+    @Test
+    fun chargeStatesOfFourthVersionBecomeTaskTargetsEverywhere() = runTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        BikeSetupDatabase.Schema.create(driver)
+        driver.execute(null, "INSERT INTO template(stand_base_url, name) VALUES ('$STAND', 'Смоук QA')", 0)
+        for ((index, state) in listOf("EMPTY", "EXTREMELY_LOW", "LOW", "NEED_TO_CHANGE", "NORMAL").withIndex()) {
+            driver.execute(
+                null,
+                "INSERT INTO template_bike(template_id, simulator_id, latitude, longitude, target_state, target_percent) " +
+                    "VALUES (1, ${SIMULATOR_ID + index}, 43.42, 39.93, '$state', NULL)",
+                0,
+            )
+        }
+        driver.execute(
+            null,
+            "INSERT INTO template_bike(template_id, simulator_id, latitude, longitude, target_state, target_percent) " +
+                "VALUES (1, $SIMULATOR_ID, 43.42, 39.93, NULL, 37.5)",
+            0,
+        )
+        driver.execute(null, "INSERT INTO setup_defaults(id, target_state, target_percent, availability) VALUES (1, 'NEED_TO_CHANGE', NULL, 'KEEP')", 0)
+        driver.execute(
+            null,
+            "INSERT INTO apply_result(template_bike_id, applied_at_epoch_millis, simulator_id, latitude, longitude, target_state, target_percent, " +
+                "availability, status_json) VALUES (3, 0, $SIMULATOR_ID, 43.42, 39.93, 'LOW', NULL, 'KEEP', '{}')",
+            0,
+        )
+
+        BikeSetupDatabase.Schema.migrate(driver, FOURTH_SCHEMA_VERSION, BikeSetupDatabase.Schema.version)
+        val repository = TemplateRepositoryImpl(BikeSetupDatabase(driver))
+
+        val targets = repository.getTemplate(1).first()?.bikes.orEmpty().map { it.setup.settings.targetState }
+        val expectedTargets = listOf(
+            StoredTargetState.CRITICAL,
+            StoredTargetState.BURNING,
+            StoredTargetState.BURNING,
+            StoredTargetState.HIGH,
+            StoredTargetState.NO_TASK,
+            null,
+        )
+        assertEquals(expectedTargets, targets)
+        assertEquals(StoredTargetState.HIGH, repository.setupDefaults.first()?.targetState)
+        assertEquals(StoredTargetState.BURNING, repository.getApplyResults(STAND).first().single().appliedSetup.settings.targetState)
     }
 
     private companion object {
         const val STAND = "https://tm-0.dev.urent.ru"
         const val SIMULATOR_ID = 4071
         const val FIRST_SCHEMA_VERSION = 1L
+        const val FOURTH_SCHEMA_VERSION = 4L
         val AdlerCity = LastCityEntity(id = "adler", name = "Адлер")
         const val FIRST_VERSION_TEMPLATE_TABLE = """
             CREATE TABLE template (

@@ -10,12 +10,13 @@ import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
 import ru.urent.qatools.base_bike_setup.entities.SetupDefaults
 import ru.urent.qatools.base_bike_setup.entities.Template
 import ru.urent.qatools.base_bike_setup.entities.TemplateBike
-import ru.urent.qatools.core_entities.ChargeState
+import ru.urent.qatools.core_entities.TaskPriority
 import ru.urent.qatools.core_network.QaJson
 import ru.urent.qatools.data_templates.ApplyResultEntity
 import ru.urent.qatools.data_templates.BikeSettingsEntity
 import ru.urent.qatools.data_templates.BikeSetupEntity
 import ru.urent.qatools.data_templates.StoredAvailability
+import ru.urent.qatools.data_templates.StoredTargetState
 import ru.urent.qatools.data_templates.TemplateEntity
 
 class TemplateMapper {
@@ -67,8 +68,18 @@ class TemplateMapper {
             is AvailabilityTarget.Disabled -> StoredAvailability.DISABLED
         }
         val disabled = availability as? AvailabilityTarget.Disabled
+        val targetState = when (target) {
+            is ChargeTarget.Task -> when (target.priority) {
+                TaskPriority.CRITICAL -> StoredTargetState.CRITICAL
+                TaskPriority.BURNING -> StoredTargetState.BURNING
+                TaskPriority.HIGH -> StoredTargetState.HIGH
+                TaskPriority.NORMAL -> StoredTargetState.NORMAL
+            }
+            ChargeTarget.NoTask -> StoredTargetState.NO_TASK
+            is ChargeTarget.Percent -> null
+        }
         return BikeSettingsEntity(
-            targetState = (target as? ChargeTarget.State)?.state,
+            targetState = targetState,
             targetPercent = (target as? ChargeTarget.Percent)?.percent,
             availability = storedAvailability,
             disabledReasonName = disabled?.reasonName,
@@ -84,12 +95,14 @@ class TemplateMapper {
     )
 
     private fun targetOf(settings: BikeSettingsEntity): ChargeTarget? {
-        val state = settings.targetState
         val percent = settings.targetPercent
-        return when {
-            state != null -> ChargeTarget.State(state)
-            percent != null -> ChargeTarget.Percent(percent)
-            else -> null
+        return when (settings.targetState) {
+            StoredTargetState.CRITICAL -> ChargeTarget.Task(TaskPriority.CRITICAL)
+            StoredTargetState.BURNING -> ChargeTarget.Task(TaskPriority.BURNING)
+            StoredTargetState.HIGH -> ChargeTarget.Task(TaskPriority.HIGH)
+            StoredTargetState.NORMAL -> ChargeTarget.Task(TaskPriority.NORMAL)
+            StoredTargetState.NO_TASK -> ChargeTarget.NoTask
+            null -> if (percent == null) null else ChargeTarget.Percent(percent)
         }
     }
 
@@ -105,6 +118,6 @@ class TemplateMapper {
     }
 
     private companion object {
-        val DefaultTarget = ChargeTarget.State(ChargeState.LOW)
+        val DefaultTarget = ChargeTarget.Task(TaskPriority.BURNING)
     }
 }

@@ -3,12 +3,14 @@ package ru.urent.qatools.base_bike_setup.di
 import kotlinx.coroutines.flow.map
 import org.koin.dsl.module
 import ru.urent.qatools.base_stand.StandSessionInteractor
+import ru.urent.qatools.base_bike_setup.domain.BatteryTaskInteractor
 import ru.urent.qatools.base_bike_setup.domain.BikeSetupInteractor
 import ru.urent.qatools.base_bike_setup.domain.LocationInteractor
 import ru.urent.qatools.base_bike_setup.domain.TemplateApplyRunner
 import ru.urent.qatools.base_bike_setup.domain.TemplateInteractor
 import ru.urent.qatools.base_bike_setup.domain.mappers.BikeMapper
 import ru.urent.qatools.base_bike_setup.domain.mappers.LocationMapper
+import ru.urent.qatools.base_bike_setup.domain.mappers.OpsTaskMapper
 import ru.urent.qatools.base_bike_setup.domain.mappers.TemplateMapper
 
 class BaseBikeSetupModule {
@@ -16,12 +18,22 @@ class BaseBikeSetupModule {
         factory { BikeMapper() }
         factory { LocationMapper() }
         factory { TemplateMapper() }
+        factory { OpsTaskMapper() }
+        single {
+            BatteryTaskInteractor(
+                opsTaskRepository = get(),
+                locationRepository = get(),
+                locationMapper = get(),
+                opsTaskMapper = get(),
+            )
+        }
         single {
             BikeSetupInteractor(
                 bikesRepository = get(),
                 simulatorRepository = get(),
                 omniEmulatorRepository = get(),
                 voiEmulatorRepository = get(),
+                batteryTaskInteractor = get(),
                 bikeMapper = get(),
                 log = get(),
             )

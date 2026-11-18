@@ -23,6 +23,7 @@ import kotlinx.datetime.toLocalDateTime
 import ru.urent.qatools.base_bike_setup.entities.ApplyStatus
 import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
 import ru.urent.qatools.base_bike_setup.entities.BikeLookup
+import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
 import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.base_bike_setup.entities.Placement
 import ru.urent.qatools.uikit.theme.QaColors
@@ -42,7 +43,7 @@ private val AppliedAtFormat = LocalDateTime.Format {
 
 @Composable
 @ReadOnlyComposable
-fun applyStatusLines(status: ApplyStatus?): List<StatusLine> = when (status) {
+fun applyStatusLines(status: ApplyStatus?, target: ChargeTarget): List<StatusLine> = when (status) {
     null -> emptyList()
     ApplyStatus.Resolving -> listOf(StatusLine("Ищем байк на стенде…", QaColors.brandText, QaColors.brand))
     is ApplyStatus.WaitingForTracker ->
@@ -54,14 +55,16 @@ fun applyStatusLines(status: ApplyStatus?): List<StatusLine> = when (status) {
             is AvailabilityTarget.Disabled ->
                 StatusLine("Доступ применён: снят «${availability.reasonTitle}»", QaColors.positiveText, QaColors.positive)
         }
-        val state = status.state
+        val reachedTaskText = when (target) {
+            is ChargeTarget.Task -> ", задача «${chargeTargetLabel(target)}»"
+            ChargeTarget.NoTask -> ", задачи на замену АКБ нет"
+            is ChargeTarget.Percent -> ""
+        }
         val chargeLine = if (status.isTargetReached) {
-            val stateText = if (state == null) "" else "${chargeStateLabel(state)}, "
-            StatusLine("Заряд подтверждён: $stateText${formatPercent(status.percent)}", QaColors.positiveText, QaColors.positive)
+            StatusLine("Подтверждено: заряд ${formatPercent(status.percent)}$reachedTaskText", QaColors.positiveText, QaColors.positive)
         } else {
-            val currentStateText = if (state == null) "" else " (сейчас «${chargeStateLabel(state)}»)"
             StatusLine(
-                "Заряд ${formatPercent(status.percent)} отправлен · статус заряда стенд пересчитает за 5–15 минут$currentStateText, " +
+                "Заряд ${formatPercent(status.percent)} отправлен · задачу на замену АКБ стенд обновит за несколько минут, " +
                     "потом нажмите «Обновить» в блоке «Сейчас на стенде»",
                 QaColors.brandText,
                 QaColors.brand,
@@ -83,7 +86,7 @@ fun bikeResultLine(status: ApplyStatus?, isChangedSinceApply: Boolean): StatusLi
         is ApplyStatus.Done -> if (status.isTargetReached) {
             StatusLine("Подтверждён", QaColors.positiveText, QaColors.positive)
         } else {
-            StatusLine("Ждёт стенд: заряд пересчитается за 5–15 мин, потом «Обновить статусы»", QaColors.brandText, QaColors.brand)
+            StatusLine("Ждёт стенд: задача обновится за несколько минут, потом «Обновить статусы»", QaColors.brandText, QaColors.brand)
         }
         is ApplyStatus.Failed -> StatusLine(failureText(status.failure), QaColors.negative, QaColors.negative)
     }
@@ -102,7 +105,7 @@ fun templateStatusLine(
     val waitingForRecalculation = bikeStatuses.count { it is ApplyStatus.Done && !it.isTargetReached }
     val failed = bikeStatuses.count { it is ApplyStatus.Failed }
     val details = mutableListOf("подтверждено $confirmed из $total")
-    if (waitingForRecalculation > 0) details.add("ждут пересчёта заряда: $waitingForRecalculation")
+    if (waitingForRecalculation > 0) details.add("ждут задачу стенда: $waitingForRecalculation")
     if (failed > 0) details.add("с ошибкой: $failed")
     if (changedCount > 0) details.add("изменены после применения: $changedCount")
     val appliedAtText = if (appliedAt == null) "" else " ${appliedAt.toLocalDateTime(TimeZone.currentSystemDefault()).format(AppliedAtFormat)}"

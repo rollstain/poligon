@@ -46,7 +46,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import ru.urent.qatools.base_bike_setup.domain.ChargeCalculator
+import ru.urent.qatools.base_bike_setup.domain.TaskPriorityCalculator
 import ru.urent.qatools.base_bike_setup.domain.PlacementCalculator
 import ru.urent.qatools.base_bike_setup.entities.BikeLookup
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
@@ -58,12 +58,13 @@ import ru.urent.qatools.base_bike_setup.presentation.StandStateLines
 import ru.urent.qatools.base_bike_setup.presentation.StatusLineView
 import ru.urent.qatools.base_bike_setup.presentation.availabilityTargetLabel
 import ru.urent.qatools.base_bike_setup.presentation.bikeResultLine
-import ru.urent.qatools.base_bike_setup.presentation.chargeStateShortLabel
 import ru.urent.qatools.base_bike_setup.presentation.chargeTargetColor
+import ru.urent.qatools.base_bike_setup.presentation.chargeTargetLabel
 import ru.urent.qatools.base_bike_setup.presentation.driverTaskColor
 import ru.urent.qatools.base_bike_setup.presentation.failureText
 import ru.urent.qatools.base_bike_setup.presentation.formatPercent
 import ru.urent.qatools.base_bike_setup.presentation.lookupLine
+import ru.urent.qatools.base_bike_setup.presentation.lowBatteryReasonWarning
 import ru.urent.qatools.base_bike_setup.presentation.templateStatusLine
 import ru.urent.qatools.base_map.BikeMap
 import ru.urent.qatools.base_map.BikeMapController
@@ -250,15 +251,14 @@ private fun BikeList(state: TemplateState, onEvent: (TemplateEvent) -> Unit) {
                 HorizontalDivider(thickness = QaDimens.dividerThickness, color = QaColors.stroke)
                 val setup = row.bike.setup
                 val lookup = row.lookup
-                val thresholds = (lookup as? BikeLookup.Found)?.bike?.thresholds
+                val taskRules = (lookup as? BikeLookup.Found)?.bike?.taskRules
                 val target = setup.target
-                val chargeText = when (target) {
-                    is ChargeTarget.Percent -> "Точный ${formatPercent(target.percent)}"
-                    is ChargeTarget.State -> if (thresholds == null) {
-                        chargeStateShortLabel(target.state)
-                    } else {
-                        "${chargeStateShortLabel(target.state)}, ${formatPercent(ChargeCalculator.targetPercent(target, thresholds))}"
-                    }
+                val bands = if (taskRules == null) null else TaskPriorityCalculator.bandsAt(taskRules, setup.location)
+                val targetPercent = if (bands == null) null else TaskPriorityCalculator.targetPercent(target, bands)
+                val chargeText = when {
+                    target is ChargeTarget.Percent || bands == null -> chargeTargetLabel(target)
+                    targetPercent == null -> "${chargeTargetLabel(target)}: в этом месте не получить"
+                    else -> "${chargeTargetLabel(target)}, ${formatPercent(targetPercent)}"
                 }
                 val techZoneName = allTechZones.firstOrNull { PlacementCalculator.isInsidePolygon(setup.location, it.outline) }?.name
                 Column(
@@ -280,16 +280,16 @@ private fun BikeList(state: TemplateState, onEvent: (TemplateEvent) -> Unit) {
                         Text(failureText(lookup.failure), style = MaterialTheme.typography.bodySmall, color = QaColors.negative)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceM)) {
-                        if (thresholds == null) {
+                        if (bands == null || targetPercent == null) {
                             Box(Modifier.size(QaDimens.chipDotSize).background(chargeTargetColor(target), RoundedCornerShape(QaDimens.chipDotSize)))
                         } else {
-                            ChargeScaleBar(
-                                percent = ChargeCalculator.targetPercent(target, thresholds),
-                                thresholds = thresholds,
-                                modifier = Modifier.width(ChargeScaleBarWidth),
-                            )
+                            ChargeScaleBar(percent = targetPercent, bands = bands, modifier = Modifier.width(ChargeScaleBarWidth))
                         }
-                        Text(chargeText, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            chargeText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (bands != null && targetPercent == null) QaColors.negative else QaColors.textPrimary,
+                        )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceM)) {
                         Text(
@@ -371,10 +371,14 @@ private fun BikeCard(row: TemplateBikeRow, state: TemplateState, onEvent: (Templ
             ChargeTargetPicker(
                 target = setup.target,
                 onTargetChange = { target -> onEvent(TemplateEvent.OnChargeChanged(bike, target)) },
-                thresholds = found?.thresholds,
+                taskRules = found?.taskRules,
+                location = setup.location,
                 currentPercent = found?.chargePercent,
-                isEmptyReachable = found == null || ChargeCalculator.isEmptyReachable(found.emulator, found.thresholds),
             )
+            val lowBatteryWarning = lowBatteryReasonWarning(target = setup.target, availability = setup.availability, bike = found)
+            if (lowBatteryWarning != null) {
+                Text(lowBatteryWarning, style = MaterialTheme.typography.bodySmall, color = QaColors.warningText)
+            }
         }
         AvailabilityField(
             target = setup.availability,

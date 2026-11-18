@@ -9,12 +9,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.data_templates.ApplyResultEntity
 import ru.urent.qatools.data_templates.BikeSettingsEntity
 import ru.urent.qatools.data_templates.BikeSetupEntity
 import ru.urent.qatools.data_templates.StoredAvailability
+import ru.urent.qatools.data_templates.StoredTargetState
 import ru.urent.qatools.data_templates.TemplateBikeEntity
 import ru.urent.qatools.data_templates.TemplateEntity
 import ru.urent.qatools.data_templates.TemplateRepository
@@ -190,7 +190,7 @@ internal class TemplateRepositoryImpl(private val database: BikeSetupDatabase) :
         reasonName: String?,
         reasonTitle: String?,
     ): BikeSettingsEntity = BikeSettingsEntity(
-        targetState = if (targetState == null) null else runCatching { ChargeState.valueOf(targetState) }.getOrNull(),
+        targetState = if (targetState == null) null else runCatching { StoredTargetState.valueOf(targetState) }.getOrNull(),
         targetPercent = targetPercent,
         availability = runCatching { StoredAvailability.valueOf(availability) }.getOrNull() ?: StoredAvailability.KEEP,
         disabledReasonName = reasonName,

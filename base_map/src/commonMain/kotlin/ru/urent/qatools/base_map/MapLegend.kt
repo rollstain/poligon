@@ -31,8 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ru.urent.qatools.base_bike_setup.entities.DriverTask
 import ru.urent.qatools.core_entities.DriverTaskReason
-import ru.urent.qatools.base_bike_setup.presentation.ChargeColors
 import ru.urent.qatools.base_bike_setup.presentation.DriverTaskBadge
+import ru.urent.qatools.base_bike_setup.presentation.TaskColors
 import ru.urent.qatools.base_bike_setup.presentation.driverTaskColor
 import ru.urent.qatools.base_bike_setup.presentation.driverTaskLabel
 import ru.urent.qatools.uikit.theme.QaColors
@@ -89,15 +89,15 @@ fun MapLegend(modifier: Modifier = Modifier) {
                 )
                 TextButton(onClick = { isExpanded = false }) { Text("Свернуть") }
             }
-            Text("Цвет пина — заряд после применения", style = MaterialTheme.typography.bodySmall, color = QaColors.textSecondary)
+            Text("Цвет пина — задача на замену АКБ после применения", style = MaterialTheme.typography.bodySmall, color = QaColors.textSecondary)
             FlowRow(verticalArrangement = Arrangement.spacedBy(QaDimens.spaceXs)) {
                 val chargeColors = listOf(
-                    ChargeColors.empty to "Пустая",
-                    ChargeColors.extremelyLow to "Сверхнизкий",
-                    ChargeColors.low to "Низкий",
-                    ChargeColors.needToChange to "Замена",
-                    ChargeColors.normal to "Норма",
-                    ChargeColors.exact to "Точный %",
+                    TaskColors.critical to "Разряжен",
+                    TaskColors.burning to "Низкий заряд",
+                    TaskColors.high to "Высокий",
+                    TaskColors.normal to "Нормальный",
+                    TaskColors.noTask to "Без задачи",
+                    TaskColors.exactPercent to "Точный %",
                 )
                 for ((color, label) in chargeColors) {
                     Row(
@@ -186,7 +186,7 @@ fun MapLegend(modifier: Modifier = Modifier) {
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(QaDimens.spaceS)) {
-                BikePinLegendIcon(color = ChargeColors.normal)
+                BikePinLegendIcon(color = TaskColors.noTask)
                 Text(
                     "Точка под хвостиком пина — координата байка",
                     style = MaterialTheme.typography.bodySmall,

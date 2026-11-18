@@ -28,6 +28,7 @@ kotlin {
             implementation(project(":core_network:api"))
             implementation(project(":data_bikes:api"))
             implementation(project(":data_location:api"))
+            implementation(project(":data_opstask:api"))
             implementation(project(":data_simulator:api"))
             implementation(project(":data_templates:api"))
             implementation(project(":base_stand"))

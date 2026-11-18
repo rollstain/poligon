@@ -1,0 +1,29 @@
+UPDATE template_bike SET target_state = CASE target_state
+    WHEN 'EMPTY' THEN 'CRITICAL'
+    WHEN 'EXTREMELY_LOW' THEN 'BURNING'
+    WHEN 'LOW' THEN 'BURNING'
+    WHEN 'NEED_TO_CHANGE' THEN 'HIGH'
+    WHEN 'NORMAL' THEN 'NO_TASK'
+    ELSE target_state
+END
+WHERE target_state IS NOT NULL;
+
+UPDATE setup_defaults SET target_state = CASE target_state
+    WHEN 'EMPTY' THEN 'CRITICAL'
+    WHEN 'EXTREMELY_LOW' THEN 'BURNING'
+    WHEN 'LOW' THEN 'BURNING'
+    WHEN 'NEED_TO_CHANGE' THEN 'HIGH'
+    WHEN 'NORMAL' THEN 'NO_TASK'
+    ELSE target_state
+END
+WHERE target_state IS NOT NULL;
+
+UPDATE apply_result SET target_state = CASE target_state
+    WHEN 'EMPTY' THEN 'CRITICAL'
+    WHEN 'EXTREMELY_LOW' THEN 'BURNING'
+    WHEN 'LOW' THEN 'BURNING'
+    WHEN 'NEED_TO_CHANGE' THEN 'HIGH'
+    WHEN 'NORMAL' THEN 'NO_TASK'
+    ELSE target_state
+END
+WHERE target_state IS NOT NULL;

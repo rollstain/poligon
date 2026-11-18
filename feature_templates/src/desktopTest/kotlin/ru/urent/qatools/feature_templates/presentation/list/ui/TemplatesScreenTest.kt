@@ -23,7 +23,7 @@ import kotlinx.coroutines.runBlocking
 import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
 import ru.urent.qatools.base_bike_setup.entities.BikeSetup
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
-import ru.urent.qatools.core_entities.ChargeState
+import ru.urent.qatools.core_entities.TaskPriority
 import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.feature_templates.presentation.list.mvi.TemplatesScreenModel
 import ru.urent.qatools.navigation.LocalNavigator
@@ -53,7 +53,7 @@ class TemplatesScreenTest {
 
         waitUntil(timeoutMillis = WAIT_TIMEOUT_MS) { onAllNodesWithText(TECH_ZONE_NAME).fetchSemanticsNodes().isNotEmpty() }
         onNodeWithText("S.4071").assertIsDisplayed()
-        onNodeWithText("Низкий заряд ×2, Рекомендуемая замена ×1").assertIsDisplayed()
+        onNodeWithText("Низкий заряд ×2, Высокий ×1").assertIsDisplayed()
         onNodeWithText("снять с доступа: 1").assertIsDisplayed()
         onNodeWithText(CITY_NAME).assertIsDisplayed()
         onNodeWithText("Ещё не применялся").assertIsDisplayed()
@@ -73,10 +73,10 @@ class TemplatesScreenTest {
     private fun createTemplate(): Long = runBlocking {
         val templateInteractor = interactors.templateInteractor
         val templateId = templateInteractor.create(standBaseUrl = TestStandInteractors.BASE_URL, name = TEMPLATE_NAME)
-        val low = ChargeTarget.State(ChargeState.LOW)
-        templateInteractor.addBike(templateId, BikeSetup(4071, InsideTechZone, low, AvailabilityTarget.Keep))
-        templateInteractor.addBike(templateId, BikeSetup(4072, InsideTechZone, low, AvailabilityTarget.Disabled(REASON_NAME, REASON_TITLE)))
-        templateInteractor.addBike(templateId, BikeSetup(4075, InsideTechZone, ChargeTarget.State(ChargeState.NEED_TO_CHANGE), AvailabilityTarget.Keep))
+        val burning = ChargeTarget.Task(TaskPriority.BURNING)
+        templateInteractor.addBike(templateId, BikeSetup(4071, InsideTechZone, burning, AvailabilityTarget.Keep))
+        templateInteractor.addBike(templateId, BikeSetup(4072, InsideTechZone, burning, AvailabilityTarget.Disabled(REASON_NAME, REASON_TITLE)))
+        templateInteractor.addBike(templateId, BikeSetup(4075, InsideTechZone, ChargeTarget.Task(TaskPriority.HIGH), AvailabilityTarget.Keep))
         templateId
     }
 

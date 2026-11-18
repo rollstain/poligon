@@ -4,13 +4,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
-import ru.urent.qatools.base_bike_setup.entities.ChargeThresholds
 import ru.urent.qatools.base_bike_setup.entities.City
 import ru.urent.qatools.base_bike_setup.entities.DisabledReason
 import ru.urent.qatools.base_bike_setup.entities.TechZone
 import ru.urent.qatools.base_bike_setup.presentation.availabilitySuggestionGroups
 import ru.urent.qatools.base_bike_setup.presentation.chargeSuggestionGroups
 import ru.urent.qatools.core_entities.GeoPoint
+import ru.urent.qatools.core_entities.TaskPriority
 
 class SuggestionGroupsTest {
 
@@ -35,19 +35,24 @@ class SuggestionGroupsTest {
 
     @Test
     fun numberInChargeQueryBecomesExactPercent() {
-        val suggestions = chargeSuggestionGroups(query = "37,5", thresholds = Thresholds).single().suggestions
+        val suggestions = chargeSuggestionGroups(query = "37,5").single().suggestions
 
         assertEquals(listOf<ChargeTarget>(ChargeTarget.Percent(EXACT_PERCENT)), suggestions.map { it.value })
     }
 
     @Test
-    fun chargeStatesShowRangesOfBikeModel() {
-        val suggestions = chargeSuggestionGroups(query = "низк", thresholds = Thresholds).single().suggestions
+    fun chargeQueryFindsTaskPrioritiesByName() {
+        val suggestions = chargeSuggestionGroups(query = "низк").single().suggestions
 
-        assertEquals(
-            listOf("Сверхнизкий заряд" to "0–10%", "Низкий заряд" to "10–15%"),
-            suggestions.map { it.title to it.supportingText },
-        )
+        assertEquals(listOf<ChargeTarget>(ChargeTarget.Task(TaskPriority.BURNING)), suggestions.map { it.value })
+        assertEquals(listOf("Низкий заряд"), suggestions.map { it.title })
+    }
+
+    @Test
+    fun emptyChargeQueryListsAllTaskTargetsFromDischargedToNoTask() {
+        val suggestions = chargeSuggestionGroups(query = "").single().suggestions
+
+        assertEquals(listOf("Разряжен", "Низкий заряд", "Высокий", "Нормальный", "Без задачи"), suggestions.map { it.title })
     }
 
     @Test
@@ -79,7 +84,6 @@ class SuggestionGroupsTest {
         const val TECH_ZONE_COUNT = 10
         const val MAX_SHOWN_PER_GROUP = 8
         val Center = GeoPoint(43.42, 39.92)
-        val Thresholds = ChargeThresholds(emptyPercent = 0.0, powerOffPercent = 10.0, disablePercent = 15.0, needToChangePercent = 25.0)
         val Reasons = listOf(
             DisabledReason(id = "1", name = "AutoRepair", title = AUTO_REPAIR_TITLE),
             DisabledReason(id = "2", name = "ReadyForUse", title = READY_FOR_USE_TITLE),

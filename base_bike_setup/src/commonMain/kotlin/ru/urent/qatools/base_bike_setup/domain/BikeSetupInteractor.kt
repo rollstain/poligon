@@ -22,8 +22,6 @@ import ru.urent.qatools.base_bike_setup.entities.BikeContext
 import ru.urent.qatools.base_bike_setup.entities.BikeLookup
 import ru.urent.qatools.base_bike_setup.entities.BikeSetup
 import ru.urent.qatools.base_bike_setup.entities.BikeStatus
-import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
-import ru.urent.qatools.base_bike_setup.entities.ChargeThresholds
 import ru.urent.qatools.base_bike_setup.entities.DisabledReason
 import ru.urent.qatools.base_bike_setup.entities.DriverTask
 import ru.urent.qatools.base_bike_setup.entities.TemplateBike
@@ -45,6 +43,7 @@ class BikeSetupInteractor(
     private val simulatorRepository: SimulatorRepository,
     private val omniEmulatorRepository: OmniEmulatorRepository,
     private val voiEmulatorRepository: VoiEmulatorRepository,
+    private val batteryTaskInteractor: BatteryTaskInteractor,
     private val bikeMapper: BikeMapper,
     private val log: AppLog,
 ) {
@@ -110,12 +109,13 @@ class BikeSetupInteractor(
         val modelThresholds = model.chargeThresholds.orEmpty()
         val threshold = modelThresholds.firstOrNull { it?.batteryCapacityCategory == thresholdCategory }
             ?: modelThresholds.firstOrNull { it?.batteryCapacityCategory == BatteryCapacityCategory.NORMAL }
-        val empty = threshold?.batteryLevelToEmpty
-        val powerOff = threshold?.batteryLevelToPoweroff
         val disable = threshold?.batteryLevelToDisable
         val needToChange = threshold?.batteryLevelNeedToChange
-        if (empty == null || powerOff == null || disable == null || needToChange == null) {
-            return BikeLookup.Failed(ApplyFailure.NoChargeThresholds)
+        if (disable == null || needToChange == null) return BikeLookup.Failed(ApplyFailure.NoChargeThresholds)
+        val loadedRules = batteryTaskInteractor.getRules(batteryCategory = batteryCategory, disablePercent = disable, needToChangePercent = needToChange)
+        val taskRules = when (loadedRules) {
+            is RequestResult.Error -> return BikeLookup.Failed(applyFailureOf(loadedRules.failure))
+            is RequestResult.Success -> loadedRules.data
         }
 
         val trackerLatitude = tracker.location?.lat
@@ -137,6 +137,7 @@ class BikeSetupInteractor(
             hasLowBatteryReason = bike.state?.disabledReasonTags.orEmpty().contains(LOW_BATTERY_REASON_NAME),
             batteryCategory = batteryCategory,
             driverTask = driverTaskOf(identifier),
+            batteryTask = batteryTaskInteractor.getTask(identifier),
         )
         val context = BikeContext(
             bikeNumber = bikeNumber,
@@ -151,12 +152,7 @@ class BikeSetupInteractor(
             chargeState = bike.charge?.status,
             location = location,
             emulator = emulator,
-            thresholds = ChargeThresholds(
-                emptyPercent = empty,
-                powerOffPercent = powerOff,
-                disablePercent = disable,
-                needToChangePercent = needToChange,
-            ),
+            taskRules = taskRules,
             disableStates = model.disableStates.orEmpty().toSet(),
             status = status,
         )
@@ -177,11 +173,17 @@ class BikeSetupInteractor(
             }
             is BikeLookup.Found -> lookup.bike
         }
-        val percent = when (bike.emulator) {
-            is TrackerEmulator.NavtelecomSimulator -> ChargeCalculator.targetPercent(setup.target, bike.thresholds)
-            TrackerEmulator.Omni, is TrackerEmulator.Voi -> ChargeCalculator.wholePercent(setup.target, bike.thresholds).toDouble()
+        val bands = TaskPriorityCalculator.bandsAt(rules = bike.taskRules, location = setup.location)
+        val targetPercent = TaskPriorityCalculator.targetPercent(target = setup.target, bands = bands)
+        if (targetPercent == null) {
+            emit(ApplyStatus.Failed(ApplyFailure.TargetUnreachableHere))
+            return@flow
         }
-        val sendFailure = send(standBaseUrl = standBaseUrl, bike = bike, setup = setup)
+        val percent = when (bike.emulator) {
+            is TrackerEmulator.NavtelecomSimulator -> targetPercent
+            TrackerEmulator.Omni, is TrackerEmulator.Voi -> ChargeCalculator.wholePercent(targetPercent).toDouble()
+        }
+        val sendFailure = send(standBaseUrl = standBaseUrl, bike = bike, setup = setup, percent = percent)
         if (sendFailure != null) {
             emit(ApplyStatus.Failed(sendFailure))
             return@flow
@@ -197,22 +199,23 @@ class BikeSetupInteractor(
     }.onEach { status -> log.info("S.${setup.bikeNumber}: $status") }
 
     suspend fun confirmRecalculatedCharge(setup: BikeSetup, applied: ApplyStatus.Done, bike: BikeContext): ApplyStatus {
-        val target = setup.target
-        if (target !is ChargeTarget.State || bike.chargeState != target.state) return applied
         val availability = setup.availability
+        val chargeState = bike.chargeState
         val isLowBatteryReasonWanted = availability is AvailabilityTarget.Disabled && availability.reasonName == LOW_BATTERY_REASON_NAME
         val isLowBatteryReasonLeftByStand = bike.status.hasLowBatteryReason &&
             availability != AvailabilityTarget.Keep &&
             !isLowBatteryReasonWanted &&
-            target.state !in bike.disableStates
-        val availabilityFailure = if (isLowBatteryReasonLeftByStand) changeAvailability(bike = bike, target = availability) else null
-        val result = if (availabilityFailure == null) {
-            applied.copy(state = bike.chargeState, isTargetReached = true)
-        } else {
-            ApplyStatus.Failed(availabilityFailure)
+            chargeState != null &&
+            chargeState !in bike.disableStates
+        if (isLowBatteryReasonLeftByStand) {
+            val availabilityFailure = changeAvailability(bike = bike, target = availability)
+            val result = if (availabilityFailure == null) applied else ApplyStatus.Failed(availabilityFailure)
+            log.info("S.${setup.bikeNumber}: стенд пересчитал заряд, доступ выставлен повторно вместо «Низкий заряд батареи»: $result")
+            return result
         }
-        val repeatedAvailabilityText = if (isLowBatteryReasonLeftByStand) ", доступ выставлен повторно вместо «Низкий заряд батареи»" else ""
-        log.info("S.${setup.bikeNumber}: стенд пересчитал заряд$repeatedAvailabilityText: $result")
+        if (!TaskPriorityCalculator.isReached(target = setup.target, task = bike.status.batteryTask)) return applied
+        val result = applied.copy(isTargetReached = true)
+        log.info("S.${setup.bikeNumber}: задача на замену АКБ стала как в цели: $result")
         return result
     }
 
@@ -272,18 +275,18 @@ class BikeSetupInteractor(
         return if (isApplied) null else ApplyFailure.AvailabilityIgnored(isDisabled = isDisabled, currentReason = currentReason)
     }
 
-    private suspend fun send(standBaseUrl: String, bike: BikeContext, setup: BikeSetup): ApplyFailure? {
+    private suspend fun send(standBaseUrl: String, bike: BikeContext, setup: BikeSetup, percent: Double): ApplyFailure? {
         val sent = when (val emulator = bike.emulator) {
             is TrackerEmulator.NavtelecomSimulator -> {
                 val located = simulatorRepository.setLocation(baseUrl = standBaseUrl, simulatorId = emulator.simulatorId, location = setup.location)
                 if (located is RequestResult.Error) return applyFailureOf(located.failure)
-                val millivolts = ChargeCalculator.millivolts(setup.target, bike.thresholds, emulator.voltageRange)
+                val millivolts = ChargeCalculator.millivolts(percent, emulator.voltageRange)
                 simulatorRepository.setVoltage(baseUrl = standBaseUrl, simulatorId = emulator.simulatorId, millivolts = millivolts)
             }
             TrackerEmulator.Omni -> omniEmulatorRepository.setChargeAndLocation(
                 baseUrl = standBaseUrl,
                 imei = bike.imei,
-                chargePercent = ChargeCalculator.wholePercent(setup.target, bike.thresholds),
+                chargePercent = ChargeCalculator.wholePercent(percent),
                 location = setup.location,
             )
             is TrackerEmulator.Voi -> {
@@ -292,7 +295,7 @@ class BikeSetupInteractor(
                 voiEmulatorRepository.setBatteryPercent(
                     baseUrl = standBaseUrl,
                     imei = bike.imei,
-                    batteryPercent = ChargeCalculator.wholePercent(setup.target, bike.thresholds),
+                    batteryPercent = ChargeCalculator.wholePercent(percent),
                 )
             }
         }
@@ -307,7 +310,7 @@ class BikeSetupInteractor(
                     is RequestResult.Success -> loaded.data
                 }
                 val pingSeconds = simulator.pingSeconds ?: return ApplyStatus.Failed(ApplyFailure.Unexpected(null))
-                val millivolts = ChargeCalculator.millivolts(setup.target, bike.thresholds, emulator.voltageRange)
+                val millivolts = ChargeCalculator.millivolts(percent, emulator.voltageRange)
                 awaitTelemetry(imei = bike.imei, timeout = (pingSeconds + REPORT_GRACE_SECONDS).seconds) { telemetry ->
                     val voltage = telemetry.mainBatteryVoltage
                     voltage != null && ChargeCalculator.toMillivolts(voltage) == millivolts
@@ -331,15 +334,10 @@ class BikeSetupInteractor(
             is RequestResult.Success -> waited.data
         }
         if (!isChargeReported) return ApplyStatus.Failed(ApplyFailure.NotConfirmed)
-        val charge = when (val loaded = bikesRepository.getBike(bike.identifier)) {
-            is RequestResult.Error -> return ApplyStatus.Failed(applyFailureOf(loaded.failure))
-            is RequestResult.Success -> loaded.data.charge
-        }
-        val target = setup.target
+        val task = batteryTaskInteractor.getTask(bike.identifier)
         return ApplyStatus.Done(
             percent = percent,
-            state = charge?.status,
-            isTargetReached = target !is ChargeTarget.State || charge?.status == target.state,
+            isTargetReached = TaskPriorityCalculator.isReached(target = setup.target, task = task),
             availability = setup.availability,
         )
     }

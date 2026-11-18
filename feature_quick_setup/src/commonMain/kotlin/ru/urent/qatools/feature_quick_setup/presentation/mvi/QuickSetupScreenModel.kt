@@ -24,9 +24,9 @@ import ru.urent.qatools.base_bike_setup.entities.Template
 import ru.urent.qatools.base_bike_setup.presentation.formatCoordinates
 import ru.urent.qatools.base_bike_setup.presentation.parseCoordinates
 import ru.urent.qatools.core_base_feature.BaseScreenModel
-import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.core_entities.GeoPoint
 import ru.urent.qatools.core_entities.RequestResult
+import ru.urent.qatools.core_entities.TaskPriority
 import ru.urent.qatools.core_entities.TileSource
 import ru.urent.qatools.core_logger.AppLog
 
@@ -46,7 +46,7 @@ class QuickSetupScreenModel(
         lookup = null,
         isLookingUp = false,
         isRefreshingBike = false,
-        target = ChargeTarget.State(ChargeState.LOW),
+        target = ChargeTarget.Task(TaskPriority.BURNING),
         availability = AvailabilityTarget.Keep,
         reasons = emptyList(),
         location = null,

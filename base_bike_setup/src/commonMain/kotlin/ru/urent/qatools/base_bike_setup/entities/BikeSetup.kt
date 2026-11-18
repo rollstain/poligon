@@ -25,7 +25,7 @@ data class BikeContext(
     val chargeState: ChargeState?,
     val location: GeoPoint?,
     val emulator: TrackerEmulator,
-    val thresholds: ChargeThresholds,
+    val taskRules: TaskRules,
     val disableStates: Set<ChargeState>,
     val status: BikeStatus,
 )
@@ -49,7 +49,6 @@ sealed interface ApplyStatus {
     @SerialName("Done")
     data class Done(
         val percent: Double,
-        val state: ChargeState?,
         val isTargetReached: Boolean,
         val availability: AvailabilityTarget,
     ) : ApplyStatus
@@ -100,6 +99,10 @@ sealed interface ApplyFailure {
     @Serializable
     @SerialName("NotConfirmed")
     data object NotConfirmed : ApplyFailure
+
+    @Serializable
+    @SerialName("TargetUnreachableHere")
+    data object TargetUnreachableHere : ApplyFailure
 
     @Serializable
     @SerialName("ReasonNotFound")

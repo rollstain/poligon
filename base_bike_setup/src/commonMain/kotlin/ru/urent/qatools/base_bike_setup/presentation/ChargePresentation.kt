@@ -5,10 +5,15 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import ru.urent.qatools.base_bike_setup.entities.ApplyFailure
+import ru.urent.qatools.base_bike_setup.entities.AvailabilityTarget
+import ru.urent.qatools.base_bike_setup.entities.BatteryTask
+import ru.urent.qatools.base_bike_setup.entities.BikeContext
+import ru.urent.qatools.base_bike_setup.entities.ChargeBand
 import ru.urent.qatools.core_entities.ChargeState
 import ru.urent.qatools.base_bike_setup.entities.ChargeTarget
-import ru.urent.qatools.base_bike_setup.entities.ChargeThresholds
+import ru.urent.qatools.base_bike_setup.entities.TaskZone
 import ru.urent.qatools.core_entities.GeoPoint
+import ru.urent.qatools.core_entities.TaskPriority
 
 object ChargeColors {
     val empty = Color(0xFF7E1432)
@@ -16,7 +21,22 @@ object ChargeColors {
     val low = Color(0xFFD7591B)
     val needToChange = Color(0xFFFFCE3B)
     val normal = Color(0xFF40A17E)
-    val exact = Color(0xFF6C7482)
+}
+
+private const val TECHNIC_CRITICAL_TASK_PIN_ARGB = 0xFF7E1432
+private const val TECHNIC_BURNING_TASK_PIN_ARGB = 0xFFAE1F4D
+private const val TECHNIC_HIGH_TASK_PIN_ARGB = 0xFFD7591B
+private const val TECHNIC_NORMAL_TASK_PIN_ARGB = 0xFF858C99
+private const val POSITIVE_GREEN_ARGB = 0xFF40A17E
+private const val EXACT_PERCENT_YELLOW_ARGB = 0xFFFFCE3B
+
+object TaskColors {
+    val critical = Color(TECHNIC_CRITICAL_TASK_PIN_ARGB)
+    val burning = Color(TECHNIC_BURNING_TASK_PIN_ARGB)
+    val high = Color(TECHNIC_HIGH_TASK_PIN_ARGB)
+    val normal = Color(TECHNIC_NORMAL_TASK_PIN_ARGB)
+    val noTask = Color(POSITIVE_GREEN_ARGB)
+    val exactPercent = Color(EXACT_PERCENT_YELLOW_ARGB)
 }
 
 private const val TENTHS_IN_UNIT = 10
@@ -35,14 +55,6 @@ fun chargeStateLabel(state: ChargeState): String = when (state) {
     ChargeState.NORMAL -> "Норма"
 }
 
-fun chargeStateShortLabel(state: ChargeState): String = when (state) {
-    ChargeState.EMPTY -> "Пустая"
-    ChargeState.EXTREMELY_LOW -> "Сверхнизкий"
-    ChargeState.LOW -> "Низкий"
-    ChargeState.NEED_TO_CHANGE -> "Рекомендуемая замена"
-    ChargeState.NORMAL -> "Норма"
-}
-
 fun chargeStateColor(state: ChargeState): Color = when (state) {
     ChargeState.EMPTY -> ChargeColors.empty
     ChargeState.EXTREMELY_LOW -> ChargeColors.extremelyLow
@@ -51,23 +63,74 @@ fun chargeStateColor(state: ChargeState): Color = when (state) {
     ChargeState.NORMAL -> ChargeColors.normal
 }
 
+fun taskPriorityLabel(priority: TaskPriority): String = when (priority) {
+    TaskPriority.CRITICAL -> "Разряжен"
+    TaskPriority.BURNING -> "Низкий заряд"
+    TaskPriority.HIGH -> "Высокий"
+    TaskPriority.NORMAL -> "Нормальный"
+}
+
+fun taskPriorityColor(priority: TaskPriority): Color = when (priority) {
+    TaskPriority.CRITICAL -> TaskColors.critical
+    TaskPriority.BURNING -> TaskColors.burning
+    TaskPriority.HIGH -> TaskColors.high
+    TaskPriority.NORMAL -> TaskColors.normal
+}
+
 fun chargeTargetLabel(target: ChargeTarget): String = when (target) {
-    is ChargeTarget.State -> chargeStateLabel(target.state)
+    is ChargeTarget.Task -> taskPriorityLabel(target.priority)
+    ChargeTarget.NoTask -> "Без задачи"
     is ChargeTarget.Percent -> "Точный ${formatPercent(target.percent)}"
 }
 
-fun chargeTargetColor(target: ChargeTarget): Color = when (target) {
-    is ChargeTarget.State -> chargeStateColor(target.state)
-    is ChargeTarget.Percent -> ChargeColors.exact
+fun chargeTargetShortLabel(target: ChargeTarget): String = when (target) {
+    is ChargeTarget.Task -> taskPriorityShortLabel(target.priority)
+    ChargeTarget.NoTask -> "Без задачи"
+    is ChargeTarget.Percent -> formatPercent(target.percent)
 }
 
-fun thresholdRangeText(state: ChargeState, thresholds: ChargeThresholds): String = when (state) {
-    ChargeState.EMPTY -> "${formatNumber(thresholds.emptyPercent)}%"
-    ChargeState.EXTREMELY_LOW -> "${formatNumber(thresholds.emptyPercent)}–${formatNumber(thresholds.powerOffPercent)}%"
-    ChargeState.LOW -> "${formatNumber(thresholds.powerOffPercent)}–${formatNumber(thresholds.disablePercent)}%"
-    ChargeState.NEED_TO_CHANGE ->
-        "${formatNumber(thresholds.disablePercent)}–${formatNumber(thresholds.needToChangePercent)}%"
-    ChargeState.NORMAL -> "от ${formatNumber(thresholds.needToChangePercent)}%"
+private fun taskPriorityShortLabel(priority: TaskPriority): String = when (priority) {
+    TaskPriority.CRITICAL -> "Разряжен"
+    TaskPriority.BURNING -> "Низкий"
+    TaskPriority.HIGH -> "Высокий"
+    TaskPriority.NORMAL -> "Нормал."
+}
+
+fun chargeTargetColor(target: ChargeTarget): Color = when (target) {
+    is ChargeTarget.Task -> taskPriorityColor(target.priority)
+    ChargeTarget.NoTask -> TaskColors.noTask
+    is ChargeTarget.Percent -> TaskColors.exactPercent
+}
+
+fun batteryTaskLabel(task: BatteryTask): String = when (task) {
+    BatteryTask.Absent -> "Нет"
+    is BatteryTask.Active -> taskPriorityLabel(task.priority)
+    BatteryTask.Unknown -> "Не удалось узнать"
+}
+
+fun bandRangeText(band: ChargeBand): String {
+    val from = formatNumber(band.fromPercent)
+    return when {
+        band.toPercent >= MAX_PERCENT && band.fromPercent > 0 -> "от $from%"
+        band.toPercent == band.fromPercent -> "$from%"
+        else -> "$from–${formatNumber(band.toPercent)}%"
+    }
+}
+
+fun taskZoneText(zone: TaskZone, isZonePercentDivided: Boolean): String = when (zone) {
+    is TaskZone.Limited -> {
+        val dividedText = if (isZonePercentDivided) ", для усиленной АКБ — % техзоны с делителем стенда" else ""
+        "Задачи на замену АКБ создаются при заряде до ${zone.taskPercent}%: техзона «${zone.zoneName}»$dividedText"
+    }
+    TaskZone.GeoIndependent -> "Место вне техзон с настройкой заряда — задача «Нормальный» здесь не создаётся"
+    is TaskZone.SwitchedOff -> "В техзоне «${zone.zoneName}» настройка заряда выключена — задачи на замену АКБ здесь не создаются"
+}
+
+fun lowBatteryReasonWarning(target: ChargeTarget, availability: AvailabilityTarget, bike: BikeContext?): String? {
+    val isRaisedTask = target == ChargeTarget.Task(TaskPriority.HIGH) || target == ChargeTarget.Task(TaskPriority.NORMAL)
+    if (bike == null || !bike.status.hasLowBatteryReason || availability != AvailabilityTarget.Keep || !isRaisedTask) return null
+    return "У байка причина снятия «Низкий заряд батареи» — с ней стенд даст задачу «Низкий заряд», а не «${chargeTargetLabel(target)}». " +
+        "Выберите доступ «В доступ» или другую причину — Полигон заменит причину"
 }
 
 fun failureText(failure: ApplyFailure): String = when (failure) {
@@ -81,6 +144,7 @@ fun failureText(failure: ApplyFailure): String = when (failure) {
     ApplyFailure.StandUnavailable -> "Стенд недоступен. Проверьте VPN"
     ApplyFailure.SessionExpired -> "Сессия истекла, войдите заново"
     ApplyFailure.NotConfirmed -> "Трекер не прислал новый заряд — проверьте симулятор или эмулятор"
+    ApplyFailure.TargetUnreachableHere -> "В этом месте стенд не создаст задачу с таким приоритетом — смените заряд или место"
     is ApplyFailure.ReasonNotFound -> "Заряд выставлен, но причины «${failure.reasonTitle}» нет на этом стенде"
     is ApplyFailure.AvailabilityNotChanged -> "Заряд выставлен, но доступ не изменился: ${failureText(failure.cause)}"
     is ApplyFailure.AvailabilityIgnored -> {

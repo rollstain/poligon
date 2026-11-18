@@ -32,6 +32,8 @@ kotlin {
                 implementation(project(":data_templates:api"))
                 implementation(project(":data_bikes:impl"))
                 implementation(project(":data_location:impl"))
+                implementation(project(":data_opstask:api"))
+                implementation(project(":data_opstask:impl"))
                 implementation(project(":data_simulator:impl"))
                 implementation(project(":data_templates:impl"))
                 implementation(project(":base_bike_setup"))

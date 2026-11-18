@@ -16,6 +16,7 @@ import ru.urent.qatools.core_platform.CorePlatformModule
 import ru.urent.qatools.core_settings.impl.CoreSettingsModule
 import ru.urent.qatools.data_bikes.impl.DataBikesModule
 import ru.urent.qatools.data_location.impl.DataLocationModule
+import ru.urent.qatools.data_opstask.impl.DataOpsTaskModule
 import ru.urent.qatools.data_qr_code.impl.DataQrCodeModule
 import ru.urent.qatools.data_releases.impl.DataReleasesModule
 import ru.urent.qatools.data_simulator.impl.DataSimulatorModule
@@ -46,6 +47,7 @@ class AppModule {
         DataSimulatorModule().module,
         DataBikesModule().module,
         DataLocationModule().module,
+        DataOpsTaskModule().module,
         DataTemplatesModule().module,
         DataQrCodeModule().module,
         DataReleasesModule().module,

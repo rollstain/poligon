@@ -5,8 +5,15 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import ru.urent.qatools.core_entities.BatteryCapacityCategory
 import ru.urent.qatools.core_entities.DriverTaskReason
+import ru.urent.qatools.core_entities.TaskPriority
 
 data class DriverTask(val reason: DriverTaskReason?)
+
+sealed interface BatteryTask {
+    data object Absent : BatteryTask
+    data class Active(val priority: TaskPriority) : BatteryTask
+    data object Unknown : BatteryTask
+}
 
 data class BikeStatus(
     val isOnline: Boolean?,
@@ -18,6 +25,7 @@ data class BikeStatus(
     val hasLowBatteryReason: Boolean,
     val batteryCategory: BatteryCapacityCategory,
     val driverTask: DriverTask?,
+    val batteryTask: BatteryTask,
 )
 
 data class DisabledReason(val id: String, val name: String, val title: String)

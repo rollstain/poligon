@@ -29,6 +29,9 @@ class ScreenTestStand(private val rejectedBikeRequests: Int = 0) {
                 respond(fixture("/driver-task.json"), HttpStatusCode.OK, JsonHeaders)
             "/bikes/api/disabledreasons/allowed" -> respond(fixture("/disabled-reasons.json"), HttpStatusCode.OK, JsonHeaders)
             "/gateway-ocelot/api/v1/location-api/sapp/Parking/list" -> respond(PARKING_LIST_JSON, HttpStatusCode.OK, JsonHeaders)
+            "/opstask/api/config/all" -> respond(fixture("/opstask-config.json"), HttpStatusCode.OK, JsonHeaders)
+            "/gateway-ocelot/api/v1/opstask-api/TechZoneSettings" -> respond(NO_TECH_ZONE_SETTINGS_JSON, HttpStatusCode.OK, JsonHeaders)
+            "/gateway-ocelot/api/v1/opstask-api/Opstasks" -> respond(NO_TASKS_JSON, HttpStatusCode.OK, JsonHeaders)
             else -> respondError(HttpStatusCode.NotFound)
         }
     }
@@ -90,6 +93,8 @@ class ScreenTestStand(private val rejectedBikeRequests: Int = 0) {
               "totalPages": 1
             }
         """
+        private const val NO_TECH_ZONE_SETTINGS_JSON = """{"entries": [], "totalPages": 1}"""
+        private const val NO_TASKS_JSON = """{"entries": []}"""
         private val JsonHeaders = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
         private val TextHeaders = headersOf(HttpHeaders.ContentType, ContentType.Text.Plain.toString())
     }
